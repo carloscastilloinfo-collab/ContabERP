@@ -1,0 +1,19 @@
+CONTABERP CLOUD + POSTGRESQL (LISTO PARA GITHUB Y RENDER)
+==========================================================
+
+1. SUBIR A GITHUB (REPOSITORIO ContabERP):
+   - Descomprima este ZIP.
+   - Suba TODOS los archivos directamente a la RAÍZ de su repositorio GitHub "ContabERP"
+     (app.py, ContabERP.html, requirements.txt, Procfile, render.yaml, .env.example).
+   - No los meta dentro de una subcarpeta adicional.
+
+2. DESPLEGAR EN RENDER:
+   - En Render, haga clic en "New +" -> "Blueprint" (o conecte el repositorio ContabERP).
+   - Render detectará render.yaml y creará automáticamente el servicio web y la base de datos PostgreSQL.
+   - Cuando Render pida "ADMIN_PASSWORD", escriba la contraseña que usará para entrar al sistema.
+   - Espere a que el despliegue termine en estado "Live".
+
+3. INICIAR SESIÓN:
+   - Abra la dirección HTTPS que le asigna Render (ejemplo: https://contaberp-cloud.onrender.com).
+   - Usuario: admin
+   - Contraseña: la que configuró en ADMIN_PASSWORD.

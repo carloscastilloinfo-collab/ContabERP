@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: contaberp-cloud
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: contaberp-postgres
+          property: connectionString
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "true"
+databases:
+  - name: contaberp-postgres
+    plan: basic-256mb
+    databaseName: contaberp
+    user: contaberp

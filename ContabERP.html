@@ -1,0 +1,2476 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContabERP v3.2 — Sistema Contable Profesional</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script>
+    if (window.tailwind) {
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              erp: {
+                dark: '#0f172a',
+                sidebar: '#1e293b',
+                accent: '#0284c7',
+                bg: '#f1f5f9'
+              }
+            }
+          }
+        }
+      };
+    }
+  </script>
+  <style>
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    @media print {
+      body { background: #ffffff !important; }
+      .no-print { display: none !important; }
+      .print-sheet {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+  <!-- PANTALLA DE INICIO DE SESIÓN -->
+  <div id="login-screen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-sky-950 p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="bg-slate-900 px-8 py-6 text-white">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-sky-500 flex items-center justify-center font-bold text-lg shadow">
+            CE
+          </div>
+          <div>
+            <h1 class="text-xl font-bold tracking-tight">ContabERP <span class="text-sky-400 text-xs font-semibold uppercase ml-1">v3.2</span></h1>
+            <p class="text-xs text-slate-300">Suite Contable y Financiera · Acceso Cloud</p>
+          </div>
+        </div>
+      </div>
+
+      <form id="login-form" class="p-8 space-y-5">
+        <div>
+          <label for="login-user" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
+            Usuario
+          </label>
+          <input
+            id="login-user"
+            type="text"
+            value="admin"
+            autocomplete="username"
+            required
+            class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+            placeholder="Ingrese su usuario"
+          />
+        </div>
+
+        <div>
+          <label for="login-pass" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
+            Contraseña
+          </label>
+          <input
+            id="login-pass"
+            type="password"
+            value=""
+            autocomplete="current-password"
+            required
+            class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+            placeholder="Ingrese su contraseña"
+          />
+        </div>
+
+        <div id="login-error" class="hidden text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+          Ingrese el usuario y la contraseña configurados en el servidor.
+        </div>
+
+        <button
+          id="login-submit-btn"
+          type="submit"
+          class="w-full py-2.5 px-4 rounded-lg bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white font-semibold text-sm shadow transition cursor-pointer"
+        >
+          Iniciar Sesión en el ERP
+        </button>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+          <span>Demo: <strong class="text-slate-700">admin</strong> / <strong class="text-slate-700">1234</strong></span>
+          <span id="storage-mode-badge" class="inline-flex items-center gap-1.5 text-emerald-700 font-medium">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Almacenamiento listo
+          </span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- APLICACIÓN PRINCIPAL ERP -->
+  <div id="erp-app" class="hidden min-h-screen flex flex-col">
+    <!-- Barra Superior de Contexto -->
+    <header class="no-print bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30">
+      <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
+        <div class="flex items-center gap-3">
+          <button
+            id="toggle-sidebar-btn"
+            type="button"
+            class="p-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+            title="Alternar menú"
+          >
+            ☰
+          </button>
+          <div class="flex items-center gap-2">
+            <span class="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center font-bold text-sm">CE</span>
+            <div>
+              <div id="topbar-company" class="text-sm font-bold leading-tight">Comercializadora El Sol S.A.</div>
+              <div id="topbar-ruc-period" class="text-[11px] text-sky-300 leading-tight">RUC: 20519843210 · Ejercicio Fiscal 2026</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 text-xs">
+          <div id="topbar-storage-status" class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span id="topbar-storage-text">PostgreSQL Cloud</span>
+          </div>
+          <div class="text-right hidden md:block">
+            <div class="text-slate-400">Usuario activo</div>
+            <div id="topbar-user" class="font-semibold text-white">admin (Contador General)</div>
+          </div>
+          <button
+            id="logout-btn"
+            type="button"
+            class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-200 hover:text-white font-medium transition cursor-pointer"
+          >
+            Cerrar Sesión
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="flex-1 flex min-h-0">
+      <!-- Menú Lateral Izquierdo -->
+      <aside id="sidebar" class="no-print w-64 shrink-0 bg-slate-800 text-slate-200 flex flex-col justify-between transition-all">
+        <nav class="p-3 space-y-1 text-sm">
+          <div class="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">Principal</div>
+          <button data-nav="portada" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left font-medium hover:bg-slate-700/70 transition cursor-pointer">
+            <span>📊</span> <span>Portada y Dashboard</span>
+          </button>
+
+          <div class="pt-2 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">Operación Contable</div>
+          <button data-nav="diario" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left font-medium hover:bg-slate-700/70 transition cursor-pointer">
+            <span>📒</span> <span>Libro Diario (CD)</span>
+          </button>
+          <button data-nav="mayor" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left font-medium hover:bg-slate-700/70 transition cursor-pointer">
+            <span>📖</span> <span>Libro Mayor</span>
+          </button>
+          <button data-nav="comprobante" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left font-medium hover:bg-slate-700/70 transition cursor-pointer">
+            <span>🧾</span> <span>Comprobante de Diario</span>
+          </button>
+
+          <div class="pt-2 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">Informes Financieros</div>
+          <button data-nav="estados" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left font-medium hover:bg-slate-700/70 transition cursor-pointer">
+            <span>📈</span> <span>Estados Financieros</span>
+          </button>
+
+          <div class="pt-2 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">Base y Administración</div>
+          <button data-nav="plancuentas" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left font-medium hover:bg-slate-700/70 transition cursor-pointer">
+            <span>🗂️</span> <span>Plan de Cuentas</span>
+          </button>
+          <button data-nav="access" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left font-medium hover:bg-slate-700/70 transition cursor-pointer">
+            <span>🗄️</span> <span>Respaldo Excel</span>
+          </button>
+          <button data-nav="config" class="nav-btn w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left font-medium hover:bg-slate-700/70 transition cursor-pointer">
+            <span>⚙️</span> <span>Empresa y Reinicio</span>
+          </button>
+        </nav>
+
+        <div class="p-4 m-3 rounded-xl bg-slate-900/80 border border-slate-700 text-xs text-slate-300 space-y-1">
+          <div class="font-semibold text-sky-400">Formato Correlativo CD</div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Enero: <strong class="text-slate-200">CD01-0001</strong><br />
+            Febrero: <strong class="text-slate-200">CD02-0001</strong><br />
+            Automático por mes y año.
+          </p>
+        </div>
+      </aside>
+
+      <!-- Área de Trabajo Central -->
+      <main class="flex-1 p-4 md:p-6 overflow-y-auto">
+        <div id="toast-banner" class="no-print hidden mb-4 px-4 py-3 rounded-xl text-sm font-medium border shadow-sm"></div>
+
+        <!-- 1. PORTADA Y DASHBOARD -->
+        <section id="view-portada" class="erp-view space-y-6">
+          <div class="no-print flex flex-wrap items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-sky-600">Portada del Sistema</span>
+              <h2 id="dash-company-title" class="text-2xl font-bold text-slate-900 mt-0.5">Comercializadora El Sol S.A.</h2>
+              <p id="dash-company-meta" class="text-xs text-slate-500 mt-1">RUC 20519843210 · Moneda: USD ($) · Ejercicio 2026</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button data-jump="diario" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold shadow transition cursor-pointer">
+                + Agregar Asiento o CD
+              </button>
+              <button data-jump="plancuentas" class="px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-sm font-semibold transition cursor-pointer">
+                Plan de Cuentas
+              </button>
+              <button data-jump="comprobante" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-semibold transition cursor-pointer">
+                Ver Comprobante PDF
+              </button>
+              <button data-jump="estados" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-semibold transition cursor-pointer">
+                Estados Financieros
+              </button>
+            </div>
+          </div>
+
+          <!-- KPIs -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div class="text-xs font-semibold uppercase text-slate-500">Total Asientos (CD)</div>
+              <div id="kpi-asientos" class="text-2xl font-bold text-slate-900 mt-1 tabular-nums">0</div>
+              <div id="kpi-asientos-sub" class="text-xs text-slate-400 mt-1">Líneas registradas en diario</div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div class="text-xs font-semibold uppercase text-slate-500">Total Debe / Haber</div>
+              <div id="kpi-volumen" class="text-2xl font-bold text-sky-700 mt-1 tabular-nums">$0.00</div>
+              <div id="kpi-cuadre" class="text-xs text-emerald-600 font-medium mt-1">Partida doble cuadrada</div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div class="text-xs font-semibold uppercase text-slate-500">Efectivo y Equivalentes</div>
+              <div id="kpi-efectivo" class="text-2xl font-bold text-slate-900 mt-1 tabular-nums">$0.00</div>
+              <div class="text-xs text-slate-400 mt-1">Saldo en cuentas de efectivo (110x)</div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div class="text-xs font-semibold uppercase text-slate-500">Utilidad / Pérdida Neta</div>
+              <div id="kpi-utilidad" class="text-2xl font-bold text-emerald-600 mt-1 tabular-nums">$0.00</div>
+              <div class="text-xs text-slate-400 mt-1">Ingresos (4xxx) menos Gastos/Costos</div>
+            </div>
+          </div>
+
+          <!-- Últimos CDs -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 class="font-bold text-slate-800">Últimos Comprobantes de Diario Registrados</h3>
+              <button data-jump="diario" class="text-xs font-semibold text-sky-600 hover:underline cursor-pointer">Ir al Libro Diario →</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm text-left">
+                <thead class="bg-slate-50 text-slate-600 text-xs uppercase border-b border-slate-200">
+                  <tr>
+                    <th class="py-3 px-4">N° CD</th>
+                    <th class="py-3 px-4">Fecha</th>
+                    <th class="py-3 px-4">Glosa / Concepto</th>
+                    <th class="py-3 px-4 text-right">Total Debe</th>
+                    <th class="py-3 px-4 text-right">Total Haber</th>
+                    <th class="py-3 px-4 text-center">Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="dash-recent-body" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. LIBRO DIARIO (CD) -->
+        <section id="view-diario" class="erp-view hidden space-y-6">
+          <div class="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+              <div>
+                <h2 class="text-xl font-bold text-slate-900">Agregar Asiento o Comprobante de Diario (CD)</h2>
+                <p class="text-xs text-slate-500 mt-0.5">El número correlativo se genera según el mes de la fecha (Ej. Enero = <code class="bg-slate-100 px-1.5 py-0.5 rounded">CD01-0001</code>).</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <label class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold cursor-pointer">
+                  📥 Importar CD (CSV/Excel)
+                  <input id="import-cd-file-input" type="file" accept=".csv,.txt,.xlsx,.xls" class="hidden" />
+                </label>
+                <div class="flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-xl">
+                  <label for="modify-cd-select" class="text-[11px] font-bold text-amber-900">Modificar CD:</label>
+                  <select id="modify-cd-select" class="bg-white border border-amber-300 rounded-lg px-2 py-1 text-xs font-mono font-bold text-amber-950">
+                    <option value="">-- Seleccionar --</option>
+                  </select>
+                  <button id="load-cd-edit-btn" type="button" class="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold cursor-pointer">
+                    Editar
+                  </button>
+                </div>
+                <div class="flex items-center gap-2 bg-sky-50 border border-sky-200 px-4 py-2 rounded-xl">
+                  <span class="text-xs font-semibold text-sky-800">CD Asignado:</span>
+                  <span id="preview-cd-number" class="text-base font-extrabold text-sky-700 tabular-nums">CD01-0001</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label for="cd-fecha" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Fecha del Asiento</label>
+                <input id="cd-fecha" type="date" value="2026-01-15" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none" />
+              </div>
+              <div class="md:col-span-2">
+                <label for="cd-glosa" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Glosa / Descripción General</label>
+                <input id="cd-glosa" type="text" placeholder="Ej. Aporte inicial de socios / Venta de mercadería al contado" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none" />
+              </div>
+            </div>
+
+            <!-- Buscador inteligente de cuentas -->
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <label for="smart-account-search" class="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  🔍 Búsqueda Inteligente de Código y Cuenta Contable
+                </label>
+                <span class="text-[11px] text-slate-500">Escriba código (ej. <code class="bg-white px-1 border rounded">1101</code>) o nombre (ej. <code class="bg-white px-1 border rounded">caja</code>, <code class="bg-white px-1 border rounded">ventas</code>)</span>
+              </div>
+
+              <div class="relative">
+                <input
+                  id="smart-account-search"
+                  type="text"
+                  autocomplete="off"
+                  placeholder="Buscar por código o nombre de cuenta..."
+                  class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                />
+                <div id="smart-search-results" class="hidden absolute left-0 right-0 mt-1 bg-white border border-slate-300 rounded-xl shadow-xl max-h-60 overflow-y-auto z-20 divide-y divide-slate-100"></div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+                <div>
+                  <label for="line-code" class="block text-[11px] font-semibold uppercase text-slate-600 mb-1">Código Cuenta</label>
+                  <input id="line-code" type="text" placeholder="1101" class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-mono" />
+                </div>
+                <div class="sm:col-span-2">
+                  <label for="line-name" class="block text-[11px] font-semibold uppercase text-slate-600 mb-1">Nombre de Cuenta</label>
+                  <input id="line-name" type="text" placeholder="Caja General" class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm" />
+                </div>
+                <div>
+                  <label for="line-debe" class="block text-[11px] font-semibold uppercase text-slate-600 mb-1">Debe</label>
+                  <input id="line-debe" type="number" step="0.01" min="0" value="0.00" class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-right tabular-nums" />
+                </div>
+                <div>
+                  <label for="line-haber" class="block text-[11px] font-semibold uppercase text-slate-600 mb-1">Haber</label>
+                  <input id="line-haber" type="number" step="0.01" min="0" value="0.00" class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-right tabular-nums" />
+                </div>
+              </div>
+
+              <div class="flex justify-end">
+                <button id="add-line-btn" type="button" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold transition cursor-pointer">
+                  + Agregar Línea al Asiento
+                </button>
+              </div>
+            </div>
+
+            <!-- Líneas del borrador actual -->
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-sm text-left">
+                <thead class="bg-slate-100 text-slate-700 text-xs uppercase border-b border-slate-200">
+                  <tr>
+                    <th class="py-2.5 px-3">Código</th>
+                    <th class="py-2.5 px-3">Cuenta Contable</th>
+                    <th class="py-2.5 px-3 text-right">Debe</th>
+                    <th class="py-2.5 px-3 text-right">Haber</th>
+                    <th class="py-2.5 px-3 text-center">Quitar</th>
+                  </tr>
+                </thead>
+                <tbody id="draft-lines-body" class="divide-y divide-slate-100"></tbody>
+                <tfoot class="bg-slate-50 font-bold text-slate-800 border-t border-slate-200 tabular-nums">
+                  <tr>
+                    <td colspan="2" class="py-2.5 px-3 text-right">Totales del Asiento:</td>
+                    <td id="draft-total-debe" class="py-2.5 px-3 text-right text-sky-700">$0.00</td>
+                    <td id="draft-total-haber" class="py-2.5 px-3 text-right text-sky-700">$0.00</td>
+                    <td id="draft-diff-cell" class="py-2.5 px-3 text-center text-xs text-emerald-700">Dif: $0.00</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <button id="clear-draft-btn" type="button" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm font-medium cursor-pointer">
+                Limpiar Borrador
+              </button>
+              <button id="save-cd-btn" type="button" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow transition cursor-pointer">
+                💾 Guardar Asiento CD y Sincronizar Respaldo
+              </button>
+            </div>
+          </div>
+
+          <!-- Historial del Libro Diario -->
+          <div class="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h3 class="text-lg font-bold text-slate-900">Historial del Libro Diario</h3>
+              <div class="flex flex-wrap items-center gap-2">
+                <select id="filter-cd-month" class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium bg-white">
+                  <option value="ALL">Todos los meses</option>
+                  <option value="01">Enero (CD01)</option>
+                  <option value="02">Febrero (CD02)</option>
+                  <option value="03">Marzo (CD03)</option>
+                  <option value="04">Abril (CD04)</option>
+                  <option value="05">Mayo (CD05)</option>
+                  <option value="06">Junio (CD06)</option>
+                  <option value="07">Julio (CD07)</option>
+                  <option value="08">Agosto (CD08)</option>
+                  <option value="09">Septiembre (CD09)</option>
+                  <option value="10">Octubre (CD10)</option>
+                  <option value="11">Noviembre (CD11)</option>
+                  <option value="12">Diciembre (CD12)</option>
+                </select>
+                <input id="filter-cd-text" type="text" placeholder="Buscar por CD o glosa..." class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs" />
+              </div>
+            </div>
+
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-sm text-left">
+                <thead class="bg-slate-50 text-slate-600 text-xs uppercase border-b border-slate-200">
+                  <tr>
+                    <th class="py-3 px-3">N° CD</th>
+                    <th class="py-3 px-3">Fecha</th>
+                    <th class="py-3 px-3">Código</th>
+                    <th class="py-3 px-3">Cuenta</th>
+                    <th class="py-3 px-3">Glosa</th>
+                    <th class="py-3 px-3 text-right">Debe</th>
+                    <th class="py-3 px-3 text-right">Haber</th>
+                    <th class="py-3 px-3 text-center">PDF</th>
+                  </tr>
+                </thead>
+                <tbody id="diario-history-body" class="divide-y divide-slate-100 tabular-nums"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. LIBRO MAYOR -->
+        <section id="view-mayor" class="erp-view hidden space-y-6">
+          <div class="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+            <div>
+              <h2 class="text-xl font-bold text-slate-900">Libro Mayor por Cuenta Contable</h2>
+              <p class="text-xs text-slate-500 mt-0.5">Seleccione o busque una cuenta para visualizar todos sus movimientos, saldos acumulados y saldo final.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+              <div class="md:col-span-2">
+                <label for="mayor-account-select" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Cuenta Contable</label>
+                <select id="mayor-account-select" class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white text-sm"></select>
+              </div>
+              <div>
+                <label for="mayor-filter-text" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Filtrar Movimientos</label>
+                <input id="mayor-filter-text" type="text" placeholder="Buscar CD o glosa..." class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 tabular-nums">
+              <div>
+                <div class="text-xs text-slate-500">Total Débitos</div>
+                <div id="mayor-total-debe" class="text-lg font-bold text-slate-900">$0.00</div>
+              </div>
+              <div>
+                <div class="text-xs text-slate-500">Total Créditos</div>
+                <div id="mayor-total-haber" class="text-lg font-bold text-slate-900">$0.00</div>
+              </div>
+              <div>
+                <div class="text-xs text-slate-500">Saldo Actual</div>
+                <div id="mayor-saldo-final" class="text-lg font-bold text-sky-700">$0.00</div>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-sm text-left">
+                <thead class="bg-slate-50 text-slate-600 text-xs uppercase border-b border-slate-200">
+                  <tr>
+                    <th class="py-3 px-3">Fecha</th>
+                    <th class="py-3 px-3">N° CD</th>
+                    <th class="py-3 px-3">Glosa</th>
+                    <th class="py-3 px-3 text-right">Debe</th>
+                    <th class="py-3 px-3 text-right">Haber</th>
+                    <th class="py-3 px-3 text-right">Saldo Acumulado</th>
+                  </tr>
+                </thead>
+                <tbody id="mayor-table-body" class="divide-y divide-slate-100 tabular-nums"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. ESTADOS FINANCIEROS -->
+        <section id="view-estados" class="erp-view hidden space-y-6">
+          <div class="no-print bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap gap-2">
+              <button data-stmt="balanza" class="stmt-tab px-3.5 py-2 rounded-lg text-xs font-bold bg-sky-600 text-white cursor-pointer">Balanza de Comprobación</button>
+              <button data-stmt="resultados" class="stmt-tab px-3.5 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Estado de Resultados</button>
+              <button data-stmt="situacion" class="stmt-tab px-3.5 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Estado de Situación Financiera</button>
+              <button data-stmt="flujo" class="stmt-tab px-3.5 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Flujo de Efectivo</button>
+              <button data-stmt="patrimonio" class="stmt-tab px-3.5 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">Cambios al Patrimonio</button>
+            </div>
+            <div class="flex flex-wrap items-center gap-2.5">
+              <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg">
+                <label for="stmt-period-select">Período:</label>
+                <select id="stmt-period-select" class="bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold text-sky-900">
+                  <option value="ALL">Todo el Ejercicio</option>
+                  <option value="01">Solo Enero</option>
+                  <option value="02">Solo Febrero</option>
+                  <option value="03">Solo Marzo</option>
+                  <option value="04">Solo Abril</option>
+                  <option value="05">Solo Mayo</option>
+                  <option value="06">Solo Junio</option>
+                  <option value="07">Solo Julio</option>
+                  <option value="08">Solo Agosto</option>
+                  <option value="09">Solo Septiembre</option>
+                  <option value="10">Solo Octubre</option>
+                  <option value="11">Solo Noviembre</option>
+                  <option value="12">Solo Diciembre</option>
+                  <option value="01-03">Enero a Marzo (Q1)</option>
+                  <option value="01-06">Enero a Junio (S1)</option>
+                  <option value="07-12">Julio a Diciembre (S2)</option>
+                  <option value="CUSTOM">Rango Personalizado...</option>
+                </select>
+              </div>
+
+              <div id="stmt-custom-range" class="hidden flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-lg">
+                <label for="stmt-month-from">De:</label>
+                <select id="stmt-month-from" class="bg-white border border-amber-300 rounded px-1.5 py-1 text-xs font-bold">
+                  <option value="01">Ene</option><option value="02">Feb</option><option value="03">Mar</option>
+                  <option value="04">Abr</option><option value="05">May</option><option value="06">Jun</option>
+                  <option value="07">Jul</option><option value="08">Ago</option><option value="09">Sep</option>
+                  <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dic</option>
+                </select>
+                <label for="stmt-month-to">A:</label>
+                <select id="stmt-month-to" class="bg-white border border-amber-300 rounded px-1.5 py-1 text-xs font-bold">
+                  <option value="01">Ene</option><option value="02">Feb</option><option value="03" selected>Mar</option>
+                  <option value="04">Abr</option><option value="05">May</option><option value="06">Jun</option>
+                  <option value="07">Jul</option><option value="08">Ago</option><option value="09">Sep</option>
+                  <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dic</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 px-2.5 py-1.5 rounded-lg">
+                <label for="stmt-level-select">Nivel de Cuenta:</label>
+                <select id="stmt-level-select" class="bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold text-sky-900">
+                  <option value="mayor">Nivel de Mayor (4 dígitos)</option>
+                  <option value="subcuenta">Nivel de Subcuenta (7 dígitos)</option>
+                  <option value="detalle">Nivel de Detalle (Subcuenta / Auxiliar)</option>
+                </select>
+              </div>
+
+              <label class="flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg cursor-pointer">
+                <input id="stmt-only-balances" type="checkbox" checked class="rounded text-sky-600" />
+                <span>Solo cuentas con saldos</span>
+              </label>
+
+              <button id="print-stmt-btn" type="button" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow cursor-pointer">
+                🖨️ Descargar / Imprimir PDF
+              </button>
+            </div>
+          </div>
+
+          <div id="statement-sheet" class="print-sheet bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+            <div class="border-b-2 border-slate-800 pb-4 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div id="stmt-company-name" class="text-xl font-extrabold text-slate-900 uppercase">Comercializadora El Sol S.A.</div>
+                <div id="stmt-company-ruc" class="text-xs font-semibold text-slate-600 mt-0.5">RUC: 20519843210</div>
+                <div id="stmt-company-addr" class="text-xs text-slate-500">Av. Principal 450, Ciudad · Tel: (01) 445-8900</div>
+              </div>
+              <div class="text-right">
+                <div id="stmt-title" class="text-lg font-extrabold text-sky-900 uppercase">Balanza de Comprobación</div>
+                <div id="stmt-period" class="text-xs font-medium text-slate-600 mt-0.5">Ejercicio Fiscal 2026 · Expresado en USD ($)</div>
+              </div>
+            </div>
+
+            <div id="statement-content" class="overflow-x-auto"></div>
+
+            <!-- Firmas de Elaborado, Revisado y Autorizado -->
+            <div class="pt-10 grid grid-cols-1 sm:grid-cols-3 gap-8 text-center text-xs">
+              <div class="pt-8 border-t border-slate-400">
+                <div id="sign-elaborado-name" class="font-bold text-slate-800 uppercase">Lic. Carlos Mendoza</div>
+                <div class="text-slate-500">ELABORADO POR</div>
+              </div>
+              <div class="pt-8 border-t border-slate-400">
+                <div id="sign-revisado-name" class="font-bold text-slate-800 uppercase">CPA Sofía Herrera</div>
+                <div class="text-slate-500">REVISADO POR</div>
+              </div>
+              <div class="pt-8 border-t border-slate-400">
+                <div id="sign-autorizado-name" class="font-bold text-slate-800 uppercase">Ing. Roberto Solís</div>
+                <div class="text-slate-500">AUTORIZADO POR</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5. COMPROBANTE DE DIARIO (PDF) -->
+        <section id="view-comprobante" class="erp-view hidden space-y-6">
+          <div class="no-print bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-3">
+              <label for="select-cd-voucher" class="text-xs font-bold uppercase text-slate-600">Seleccionar CD:</label>
+              <select id="select-cd-voucher" class="px-3.5 py-2 rounded-lg border border-slate-300 bg-white text-sm font-bold text-sky-900"></select>
+            </div>
+            <button id="print-cd-btn" type="button" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow cursor-pointer">
+              📄 Descargar / Imprimir Comprobante PDF
+            </button>
+          </div>
+
+          <div id="voucher-sheet" class="print-sheet bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+            <div class="border-b-2 border-slate-800 pb-4 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div id="cdv-company-name" class="text-xl font-extrabold text-slate-900 uppercase">Comercializadora El Sol S.A.</div>
+                <div id="cdv-company-ruc" class="text-xs font-semibold text-slate-600 mt-0.5">RUC: 20519843210</div>
+                <div id="cdv-company-addr" class="text-xs text-slate-500">Av. Principal 450, Ciudad · Tel: (01) 445-8900</div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm font-bold uppercase text-slate-500">Comprobante de Diario</div>
+                <div id="cdv-number" class="text-2xl font-extrabold text-sky-800 tabular-nums">CD01-0001</div>
+                <div id="cdv-date" class="text-xs font-semibold text-slate-600 mt-0.5">Fecha: 2026-01-05</div>
+              </div>
+            </div>
+
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm">
+              <span class="font-bold text-slate-700">Glosa / Concepto:</span>
+              <span id="cdv-glosa" class="text-slate-800 ml-1">—</span>
+            </div>
+
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-sm text-left">
+                <thead class="bg-slate-100 text-slate-700 text-xs uppercase border-b border-slate-200">
+                  <tr>
+                    <th class="py-2.5 px-4">Código</th>
+                    <th class="py-2.5 px-4">Cuenta Contable</th>
+                    <th class="py-2.5 px-4 text-right">Debe</th>
+                    <th class="py-2.5 px-4 text-right">Haber</th>
+                  </tr>
+                </thead>
+                <tbody id="cdv-lines-body" class="divide-y divide-slate-100 tabular-nums"></tbody>
+                <tfoot class="bg-slate-50 font-bold text-slate-900 border-t border-slate-300 tabular-nums">
+                  <tr>
+                    <td colspan="2" class="py-3 px-4 text-right">Totales:</td>
+                    <td id="cdv-total-debe" class="py-3 px-4 text-right">$0.00</td>
+                    <td id="cdv-total-haber" class="py-3 px-4 text-right">$0.00</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div class="pt-10 grid grid-cols-1 sm:grid-cols-3 gap-8 text-center text-xs">
+              <div class="pt-8 border-t border-slate-400">
+                <div id="cdv-sign-elab" class="font-bold text-slate-800 uppercase">Lic. Carlos Mendoza</div>
+                <div class="text-slate-500">ELABORADO POR</div>
+              </div>
+              <div class="pt-8 border-t border-slate-400">
+                <div id="cdv-sign-rev" class="font-bold text-slate-800 uppercase">CPA Sofía Herrera</div>
+                <div class="text-slate-500">REVISADO POR</div>
+              </div>
+              <div class="pt-8 border-t border-slate-400">
+                <div id="cdv-sign-aut" class="font-bold text-slate-800 uppercase">Ing. Roberto Solís</div>
+                <div class="text-slate-500">AUTORIZADO POR</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 6. PLAN DE CUENTAS (AGREGAR, MODIFICAR, IMPORTAR Y VISUALIZAR) -->
+        <section id="view-plancuentas" class="erp-view hidden space-y-6">
+          <div class="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+              <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-sky-600">Catálogo Contable</span>
+                <h2 class="text-xl font-bold text-slate-900 mt-0.5">Plan de Cuentas: Agregar, Modificar e Importar</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Cree nuevas cuentas, modifique cuentas existentes desde el selector o el botón <strong>Modificar</strong>, importe CSV/Excel y explore todo el catálogo.</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <button id="coa-download-template-btn" type="button" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold cursor-pointer">
+                  ⬇️ Descargar Plantilla CSV
+                </button>
+                <div class="bg-sky-50 border border-sky-200 px-3.5 py-2 rounded-xl text-xs font-bold text-sky-800">
+                  Cuentas: <span id="coa-active-count">0</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Formulario Agregar o Modificar Cuenta -->
+            <div class="bg-sky-50/70 p-4 md:p-5 rounded-xl border border-sky-200 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <h3 id="coa-form-title" class="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  ➕ Agregar o Modificar Cuenta en el Plan de Cuentas
+                </h3>
+                <div class="flex items-center gap-2">
+                  <label for="coa-edit-select" class="text-[11px] font-bold text-slate-700">Seleccionar para Modificar:</label>
+                  <select id="coa-edit-select" class="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-mono max-w-xs">
+                    <option value="">-- Nueva cuenta --</option>
+                  </select>
+                  <button id="coa-reset-form-btn" type="button" class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-xs font-semibold text-slate-700 cursor-pointer">
+                    Limpiar
+                  </button>
+                </div>
+              </div>
+
+              <form id="coa-account-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+                <div>
+                  <label for="coa-code-input" class="block text-[11px] font-bold uppercase text-slate-700 mb-1">Código de Cuenta *</label>
+                  <input id="coa-code-input" type="text" required placeholder="Ej. 1101003002" class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-mono" />
+                </div>
+                <div class="lg:col-span-2">
+                  <label for="coa-name-input" class="block text-[11px] font-bold uppercase text-slate-700 mb-1">Nombre de la Cuenta *</label>
+                  <input id="coa-name-input" type="text" required placeholder="Ej. Banco LAFISE Cta Cte" class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm" />
+                </div>
+                <div>
+                  <label for="coa-type-select" class="block text-[11px] font-bold uppercase text-slate-700 mb-1">Tipo de Cuenta</label>
+                  <select id="coa-type-select" class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold">
+                    <option value="AUTO">Automático según código</option>
+                    <option value="ACTIVO">ACTIVO</option>
+                    <option value="PASIVO">PASIVO</option>
+                    <option value="PATRIMONIO">PATRIMONIO</option>
+                    <option value="INGRESO">INGRESO</option>
+                    <option value="GASTO">GASTO</option>
+                  </select>
+                </div>
+                <div>
+                  <button id="coa-save-btn" type="submit" class="w-full py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow cursor-pointer">
+                    💾 Guardar Cuenta
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Importación Masiva CSV / Excel -->
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  📥 Importación Masiva (CSV / Excel / Pegar Filas: <code class="bg-white px-1 border rounded">codigo,nombre,tipo</code>)
+                </h3>
+                <input id="plan-file-input" type="file" accept=".csv,.txt,.xlsx,.xls" class="text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100 cursor-pointer" />
+              </div>
+              <textarea
+                id="plan-csv-input"
+                rows="3"
+                placeholder="1101003002,Banco LAFISE Cta Cte,ACTIVO&#10;2101001020,Proveedor Local Nuevo,PASIVO"
+                class="w-full p-3 rounded-xl border border-slate-300 bg-white font-mono text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+              ></textarea>
+              <div class="flex flex-wrap gap-2.5">
+                <button id="import-plan-merge-btn" type="button" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold cursor-pointer">
+                  Combinar / Actualizar Plan
+                </button>
+                <button id="import-plan-replace-btn" type="button" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold cursor-pointer">
+                  Reemplazar Plan Completo
+                </button>
+              </div>
+            </div>
+
+            <!-- Visualización del Catálogo Completo -->
+            <div class="space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Catálogo de Cuentas</h3>
+                <div class="flex flex-wrap items-center gap-2">
+                  <select id="catalog-filter-type" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold">
+                    <option value="ALL">Todos los tipos</option>
+                    <option value="ACTIVO">ACTIVO</option>
+                    <option value="PASIVO">PASIVO</option>
+                    <option value="PATRIMONIO">PATRIMONIO</option>
+                    <option value="INGRESO">INGRESO</option>
+                    <option value="GASTO">GASTO</option>
+                  </select>
+                  <input id="catalog-search-input" type="text" placeholder="Buscar código o nombre..." class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs" />
+                </div>
+              </div>
+
+              <div class="overflow-x-auto max-h-[28rem] overflow-y-auto border border-slate-200 rounded-xl">
+                <table class="w-full text-sm text-left">
+                  <thead class="bg-slate-100 text-slate-700 text-xs uppercase border-b border-slate-200 sticky top-0">
+                    <tr>
+                      <th class="py-2.5 px-3">Código</th>
+                      <th class="py-2.5 px-3">Nombre de Cuenta</th>
+                      <th class="py-2.5 px-3">Tipo</th>
+                      <th class="py-2.5 px-3 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="catalog-table-body" class="divide-y divide-slate-100"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 7. RESPALDO Y EXPORTACION -->
+        <section id="view-access" class="erp-view hidden space-y-6">
+          <div class="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div>
+              <h2 class="text-xl font-bold text-slate-900">Respaldo y exportación de información</h2>
+              <p class="text-xs text-slate-500 mt-1">Descargue una copia de seguridad en Excel con empresas, catálogo de cuentas, comprobantes y detalle del Libro Diario.</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <button id="download-full-backup-xlsx-btn" type="button" class="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold cursor-pointer">
+                ⬇️ Descargar respaldo completo en Excel (.xlsx)
+              </button>
+              <span class="text-xs text-slate-500">Incluye todas las empresas, cuentas, comprobantes y líneas contables.</span>
+            </div>
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+              <strong>Almacenamiento central activo:</strong> los cambios se guardan en PostgreSQL. El Excel es una copia descargable de seguridad, no el lugar donde se almacenan los datos operativos.
+            </div>
+          </div>
+        </section>
+
+        <!-- 8. EMPRESA Y REINICIO A CERO -->
+        <section id="view-config" class="erp-view hidden space-y-6">
+          <!-- Registrar Empresa y RUC -->
+          <div class="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <h2 class="text-xl font-bold text-slate-900">1. Registrar Empresa y RUC</h2>
+                <p class="text-xs text-slate-500">Los datos registrados aparecen en la barra superior, portada, estados financieros, comprobantes PDF y firmas.</p>
+              </div>
+              <button id="new-company-btn" type="button" class="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold cursor-pointer">
+                + Nueva Empresa
+              </button>
+            </div>
+
+            <form id="company-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label for="cfg-company-select" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Empresas Registradas</label>
+                <select id="cfg-company-select" class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"></select>
+              </div>
+              <div>
+                <label for="cfg-razon" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Razón Social *</label>
+                <input id="cfg-razon" type="text" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
+              </div>
+              <div>
+                <label for="cfg-ruc" class="block text-xs font-semibold uppercase text-slate-600 mb-1">RUC / Identificación Fiscal *</label>
+                <input id="cfg-ruc" type="text" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono" />
+              </div>
+
+              <div>
+                <label for="cfg-moneda" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Moneda</label>
+                <input id="cfg-moneda" type="text" value="USD ($)" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
+              </div>
+              <div>
+                <label for="cfg-periodo" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Ejercicio Fiscal</label>
+                <input id="cfg-periodo" type="text" value="2026" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
+              </div>
+              <div>
+                <label for="cfg-direccion" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Dirección / Teléfono</label>
+                <input id="cfg-direccion" type="text" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
+              </div>
+
+              <div>
+                <label for="cfg-elab" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Elaborado Por</label>
+                <input id="cfg-elab" type="text" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
+              </div>
+              <div>
+                <label for="cfg-rev" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Revisado Por</label>
+                <input id="cfg-rev" type="text" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
+              </div>
+              <div>
+                <label for="cfg-aut" class="block text-xs font-semibold uppercase text-slate-600 mb-1">Autorizado Por</label>
+                <input id="cfg-aut" type="text" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm" />
+              </div>
+
+              <div class="md:col-span-3 flex justify-end pt-2">
+                <button type="submit" class="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold shadow cursor-pointer">
+                  Guardar Datos de Empresa
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Borrar Todo y Regresar a Cero -->
+          <div class="bg-white p-5 md:p-6 rounded-2xl border-2 border-rose-200 shadow-sm space-y-4">
+            <div>
+              <h2 class="text-xl font-bold text-rose-700">2. Borrar Todo y Regresar a Cero</h2>
+              <p class="text-xs text-slate-600 mt-1">Elimina todos los asientos del Libro Diario, saldos y comprobantes para iniciar desde cero. Escriba <strong class="font-mono text-rose-700">CERO</strong> para habilitar el borrado.</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <input id="reset-confirm-input" type="text" placeholder="Escriba CERO para confirmar" class="px-3.5 py-2 rounded-lg border border-rose-300 text-sm font-mono uppercase focus:ring-2 focus:ring-rose-500 focus:outline-none" />
+              <button id="reset-movements-btn" type="button" disabled class="px-4 py-2 rounded-xl bg-amber-600 disabled:opacity-40 hover:bg-amber-700 text-white text-xs font-bold cursor-pointer">
+                🧹 Borrar Movimientos (Mantener Empresa y Plan)
+              </button>
+              <button id="reset-factory-btn" type="button" disabled class="px-4 py-2 rounded-xl bg-rose-600 disabled:opacity-40 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer">
+                🔥 Reinicio Total de Fábrica (Todo a Cero)
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // Almacenamiento central: PostgreSQL mediante la API del servidor.
+    const safeStorage = (() => ({
+      isPersistent: true,
+      get(key) {
+        try {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', '/api/state', false);
+          xhr.setRequestHeader('Accept', 'application/json');
+          xhr.send(null);
+          if (xhr.status !== 200) throw new Error(`Servidor ${xhr.status}`);
+          const data = JSON.parse(xhr.responseText || '{}');
+          if (!data.ok) throw new Error(data.error || 'No se pudo leer PostgreSQL');
+          window.__contabLastCloudState = data.state ? JSON.stringify(data.state) : null;
+          window.__contabRevision = Number(data.revision || 0);
+          return window.__contabLastCloudState;
+        } catch (err) {
+          console.error('No fue posible leer la base de datos central:', err);
+          throw new Error('No se pudo conectar con la base de datos central. Verifique Internet y vuelva a cargar.');
+        }
+      },
+      set(key, val) {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/state', false);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify({ state: JSON.parse(String(val)), expectedRevision: Number(window.__contabRevision || 0) }));
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const saved = JSON.parse(xhr.responseText || '{}');
+          window.__contabLastCloudState = JSON.stringify(JSON.parse(String(val)));
+          window.__contabRevision = Number(saved.revision || 0);
+        }
+        if (xhr.status < 200 || xhr.status >= 300) {
+          let detail = 'Error al guardar en PostgreSQL';
+          try { detail = JSON.parse(xhr.responseText).error || detail; } catch (_) {}
+          console.error(detail);
+          if (typeof showToast === 'function') showToast(`No se guardó en la nube: ${detail}`, 'error');
+          throw new Error(detail);
+        }
+      },
+      remove() { this.set(STORAGE_KEY, JSON.stringify(createInitialState())); }
+    }))();
+
+    const STORAGE_KEY = 'contaberp_state_v3';
+
+    const DEFAULT_PLAN = [{"code": "1", "name": "ACTIVOS", "type": "ACTIVO"}, {"code": "11", "name": "ACTIVOS CORRIENTES", "type": "ACTIVO"}, {"code": "1101", "name": "EFECTIVOS Y EQUIVALENTES DE EFECTIVO", "type": "ACTIVO"}, {"code": "1101001", "name": "CAJA GENERAL", "type": "ACTIVO"}, {"code": "1101001001", "name": "Efectivo en Caja Moneda Nacional", "type": "ACTIVO"}, {"code": "1101001002", "name": "Efectivo en Caja Moneda Extranjera", "type": "ACTIVO"}, {"code": "1101002", "name": "CAJA CHICA", "type": "ACTIVO"}, {"code": "1101002001", "name": "Fondo de Caja Chica", "type": "ACTIVO"}, {"code": "1101003", "name": "EFECTIVOS EN BANCOS MONEDA NACIONAL", "type": "ACTIVO"}, {"code": "1101003001", "name": "BAC CTA.CTE 373247816", "type": "ACTIVO"}, {"code": "1101004", "name": "EFECTIVO EN BANCOS MONEDA EXTRANJERA", "type": "ACTIVO"}, {"code": "1101004001", "name": "BAC CTA. CTE 373-25145-3", "type": "ACTIVO"}, {"code": "1102", "name": "COBROS CON TARJETA DE CREDITO", "type": "ACTIVO"}, {"code": "1102001", "name": "COBROS REALIZADOS CON TARJETA DE", "type": "ACTIVO"}, {"code": "1102001001", "name": "BAC CTA CTE", "type": "ACTIVO"}, {"code": "1103", "name": "DEUDORES COMERCIALES Y OTRAS CUENTAS", "type": "ACTIVO"}, {"code": "1103001", "name": "CHINA CAMC ENGINEERING CO LTDA", "type": "ACTIVO"}, {"code": "1103001001", "name": "CAMCE 1 Componente B", "type": "ACTIVO"}, {"code": "1103001002", "name": "CAMCE 2 Componente A", "type": "ACTIVO"}, {"code": "1103001003", "name": "CAMCE 1 Componente C", "type": "ACTIVO"}, {"code": "1103001004", "name": "Roca Fortuna", "type": "ACTIVO"}, {"code": "1103001005", "name": "CHINA CAMC ENGINEERING CIA LTDA", "type": "ACTIVO"}, {"code": "1103002", "name": "CUENTAS Y DOCUMENTOS POR COBRAR A", "type": "ACTIVO"}, {"code": "1103002001", "name": "Cuentas por Cobrar Empleados", "type": "ACTIVO"}, {"code": "1103002002", "name": "Anticipos de Empleados", "type": "ACTIVO"}, {"code": "1103003", "name": "CUENTAS POR COBRAR A ACCIONISTAS", "type": "ACTIVO"}, {"code": "1103004001", "name": "Transporte Zamora Davila", "type": "ACTIVO"}, {"code": "1103003001", "name": "Cuentas por Cobrar a Accionistas", "type": "ACTIVO"}, {"code": "1104", "name": "ESTIMACION DE CUENTAS INCOBRABLES", "type": "ACTIVO"}, {"code": "1104001", "name": "CUENTAS INCOBRABLES DEUDORES", "type": "ACTIVO"}, {"code": "11040010001", "name": "Estimación por Cuentas Incobrables", "type": "ACTIVO"}, {"code": "1105", "name": "IMPUESTOS PAGADOS POR ANTICIPADO", "type": "ACTIVO"}, {"code": "1105001", "name": "IMPUESTO AL VALOR AGREGADO CREDITO", "type": "ACTIVO"}, {"code": "1105001001", "name": "IVA por Compras de Bienes y Servicios", "type": "ACTIVO"}, {"code": "1105001002", "name": "IVA por Importaciones", "type": "ACTIVO"}, {"code": "1105002", "name": "RETENCIONES ACREDITABLES", "type": "ACTIVO"}, {"code": "1105002001", "name": "Retenciones 2% IR Sobre Ventas de Bienes y", "type": "ACTIVO"}, {"code": "1105002002", "name": "Retenciones 1.5% de Tarjetas de Crédito", "type": "ACTIVO"}, {"code": "1105002003", "name": "Anticipos Mensuales del Impuesto sobre la", "type": "ACTIVO"}, {"code": "1105002004", "name": "Saldos a Favor por Renta Anual", "type": "ACTIVO"}, {"code": "1105002005", "name": "Retenciones Municipales por Acreditar", "type": "ACTIVO"}, {"code": "1106", "name": "INVENTARIOS", "type": "ACTIVO"}, {"code": "1106001", "name": "INVENTARIO DISPONIBLE PARA LA VENTA", "type": "ACTIVO"}, {"code": "1106001001", "name": "Almacen General", "type": "ACTIVO"}, {"code": "1106002", "name": "INVENTARIOS EN TRANSITO", "type": "ACTIVO"}, {"code": "1106002001", "name": "Inventario en tránsito", "type": "ACTIVO"}, {"code": "1106003", "name": "DETERIORO DE LOS INVENTARIOS", "type": "ACTIVO"}, {"code": "1106003001", "name": "Deterioro del Inventario", "type": "ACTIVO"}, {"code": "1107", "name": "PAGOS Y GASTOS PAGADOS POR ANTICIPADO", "type": "ACTIVO"}, {"code": "1107001", "name": "SEGUROS Y GASTOS PAGADOS POR", "type": "ACTIVO"}, {"code": "1107001001", "name": "Seguros Pagados por Anticipado", "type": "ACTIVO"}, {"code": "1107001002", "name": "Gastos Pagados por Anticipado", "type": "ACTIVO"}, {"code": "1107002", "name": "ANTICIPOS DE PROVEEDORES NACIONALES Y", "type": "ACTIVO"}, {"code": "1107002001", "name": "Anticipos de Proveedores Nacionales", "type": "ACTIVO"}, {"code": "1107002002", "name": "Anticipos de Proveedores Extranjeros", "type": "ACTIVO"}, {"code": "1107002003", "name": "Anticipos Sujetos a Rendición", "type": "ACTIVO"}, {"code": "1108", "name": "GARANTIAS Y FIANZAS", "type": "ACTIVO"}, {"code": "1108001", "name": "GARANTIAS", "type": "ACTIVO"}, {"code": "1108001001", "name": "Garantía Bancaria por Presentación de Oferta", "type": "ACTIVO"}, {"code": "1108001002", "name": "Garantía Bancaria de Cumplimiento de Oferta", "type": "ACTIVO"}, {"code": "1108002", "name": "FIANZAS", "type": "ACTIVO"}, {"code": "1108002001", "name": "Fianzas de Presentación de Oferta", "type": "ACTIVO"}, {"code": "1108002002", "name": "Fianzas de Mantenimiento de Oferta", "type": "ACTIVO"}, {"code": "12", "name": "ACTIVOS NO CORRIENTES", "type": "ACTIVO"}, {"code": "1201", "name": "PROPIEDAD, PLANTA Y EQUIPO", "type": "ACTIVO"}, {"code": "1201001", "name": "BIENES INMUEBLES", "type": "ACTIVO"}, {"code": "1201001001", "name": "Terreno", "type": "ACTIVO"}, {"code": "1201001002", "name": "Edificio", "type": "ACTIVO"}, {"code": "1201001003", "name": "Mejoras a la Propiedad", "type": "ACTIVO"}, {"code": "1201002", "name": "BIENES MUEBLES", "type": "ACTIVO"}, {"code": "1201002001", "name": "Mobiliario y Equipo de Oficina", "type": "ACTIVO"}, {"code": "1201002002", "name": "Equipo de Reparto", "type": "ACTIVO"}, {"code": "1201002003", "name": "Equipo de Computo", "type": "ACTIVO"}, {"code": "1201002004", "name": "Herramientas y Enseres", "type": "ACTIVO"}, {"code": "1201003", "name": "DEPRECIACION ACUMULADA BIENES INMUEBLES", "type": "ACTIVO"}, {"code": "1201003001", "name": "Depreciación de Terreno", "type": "ACTIVO"}, {"code": "1201003002", "name": "Depreciación de Edificio", "type": "ACTIVO"}, {"code": "1201003003", "name": "Depreciación de Mejoras a la Propiedad", "type": "ACTIVO"}, {"code": "1201004", "name": "DEPRECIACION ACUMULADA DE BIENES MUEBLES", "type": "ACTIVO"}, {"code": "1201004001", "name": "Depreciación Acumulada de Mob. y Equipo de", "type": "ACTIVO"}, {"code": "1201004002", "name": "Depreciación Acumulada de Equipo de Reparto", "type": "ACTIVO"}, {"code": "1201004003", "name": "Depreciación de Herramientas y Enseres", "type": "ACTIVO"}, {"code": "1201004005", "name": "Depreciación de Euipo de Computo", "type": "ACTIVO"}, {"code": "1202", "name": "OTROS ACTIVOS", "type": "ACTIVO"}, {"code": "1202001", "name": "ACTIVOS DIFERIDOS", "type": "ACTIVO"}, {"code": "1202001001", "name": "Papeleria y Útiles de Oficina", "type": "ACTIVO"}, {"code": "1202001002", "name": "Propaganda y Publicidad", "type": "ACTIVO"}, {"code": "1202001003", "name": "Rentas Pagadas por Adelantado", "type": "ACTIVO"}, {"code": "1202001004", "name": "Intereses Pagados por Anticipados", "type": "ACTIVO"}, {"code": "1202001005", "name": "Otros Activos", "type": "ACTIVO"}, {"code": "2", "name": "PASIVOS", "type": "PASIVO"}, {"code": "21", "name": "PASIVOS CORRIENTES", "type": "PASIVO"}, {"code": "2101", "name": "ACREEDORES COMERCIALES Y OTRAS", "type": "PASIVO"}, {"code": "2101001", "name": "PROVEEDORES NACIONALES", "type": "PASIVO"}, {"code": "2101001001", "name": "Transporte Shamtall y Caleb & Cia Ltda", "type": "PASIVO"}, {"code": "2101001002", "name": "Transporte Jordy Rostran", "type": "PASIVO"}, {"code": "2101001003", "name": "Transporte Rocha Rocha", "type": "PASIVO"}, {"code": "2101001004", "name": "Espinoza Construcciones & Cia Ltda", "type": "PASIVO"}, {"code": "2101001005", "name": "Transporte Zamora Davila", "type": "PASIVO"}, {"code": "2101001006", "name": "BCR HORIZONTALES", "type": "PASIVO"}, {"code": "2101001007", "name": "Proveedores Nacionales", "type": "PASIVO"}, {"code": "2101001009", "name": "Servicio de Transporte Carol", "type": "PASIVO"}, {"code": "2101001010", "name": "Transportes Gutierrez", "type": "PASIVO"}, {"code": "2101001011", "name": "Servicios de Construcción y Transporte", "type": "PASIVO"}, {"code": "2101001008", "name": "Transporte Meza", "type": "PASIVO"}, {"code": "2101001012", "name": "Transporte de carga gomez", "type": "PASIVO"}, {"code": "2101001013", "name": "Servicios multiples Ney", "type": "PASIVO"}, {"code": "2101001014", "name": "Onel Lainez Ingenieros S.A", "type": "PASIVO"}, {"code": "2101001015", "name": "Transporte Canales Trucking", "type": "PASIVO"}, {"code": "2101001016", "name": "Transporte Canales", "type": "PASIVO"}, {"code": "2101002", "name": "PROVEEDORES EXTRANJEROS", "type": "PASIVO"}, {"code": "2101003", "name": "ACREEDORES COMERCIALES Y OTRA CUENTAS", "type": "PASIVO"}, {"code": "2101003001", "name": "Acreedores Comerciales y de Servicios", "type": "PASIVO"}, {"code": "2101003002", "name": "Anticipos de Clientes", "type": "PASIVO"}, {"code": "2101003003", "name": "Depósitos Bancarios no Identificados", "type": "PASIVO"}, {"code": "2102", "name": "PRÉSTAMOS FINANCIEROS A CORTO PLAZO", "type": "PASIVO"}, {"code": "2102001", "name": "PRÉSTAMOS BANCARIOS C/P", "type": "PASIVO"}, {"code": "2102001001", "name": "Préstamos Bancarios Corto Plazo", "type": "PASIVO"}, {"code": "2103", "name": "OTRAS CUENTAS POR PAGAR Y ACCIONISTAS", "type": "PASIVO"}, {"code": "2103001", "name": "OTRAS CUENTAS POR PAGAR", "type": "PASIVO"}, {"code": "2103001001", "name": "Otras Cuentas por Pagar", "type": "PASIVO"}, {"code": "2103002", "name": "CUENTAS POR PAGAR ACCIONISTAS", "type": "PASIVO"}, {"code": "2103002001", "name": "Cuentas por Pagar a Accionistas", "type": "PASIVO"}, {"code": "2103002002", "name": "Dietas por Pagar a Accionistas", "type": "PASIVO"}, {"code": "2103002003", "name": "Promesas de Ventas", "type": "PASIVO"}, {"code": "2104", "name": "GASTOS ACUMULADOS POR PAGAR", "type": "PASIVO"}, {"code": "2104001", "name": "BENEFICIOS LABORABLES CORRIENTES", "type": "PASIVO"}, {"code": "2104001001", "name": "Salarios por Pagar", "type": "PASIVO"}, {"code": "2104001002", "name": "Comisiones por Pagar", "type": "PASIVO"}, {"code": "2104001003", "name": "Vacaciones", "type": "PASIVO"}, {"code": "2104001004", "name": "Decimo Tercer Mes", "type": "PASIVO"}, {"code": "2104001005", "name": "Indemnización por Años de Servicio", "type": "PASIVO"}, {"code": "2104001006", "name": "Aporte Patronal", "type": "PASIVO"}, {"code": "2104001007", "name": "Inatec", "type": "PASIVO"}, {"code": "2104002", "name": "PROVISIONES POR SERVICIOS", "type": "PASIVO"}, {"code": "2104002001", "name": "Servicio de Energía Eléctrica Dissnorte/Dissur", "type": "PASIVO"}, {"code": "2104002002", "name": "Servicio de Agua Potable y Alcantarillado", "type": "PASIVO"}, {"code": "2104002003", "name": "Servicios de Telefonía Celular y Convencional", "type": "PASIVO"}, {"code": "2104002004", "name": "Servicio de Internet", "type": "PASIVO"}, {"code": "2105", "name": "RETENCIONES LABORABLES POR PAGAR", "type": "PASIVO"}, {"code": "2105001", "name": "RETENCIONES FISCALES Y DE SEGURIDAD", "type": "PASIVO"}, {"code": "2105001001", "name": "Retenciones por Renta de Trabajo", "type": "PASIVO"}, {"code": "2105001002", "name": "Inss Laboral", "type": "PASIVO"}, {"code": "2105001003", "name": "2% IR Sobre Compras de Bienes y Servicios", "type": "PASIVO"}, {"code": "2105001004", "name": "10% IR de Servicios Profesionales", "type": "PASIVO"}, {"code": "2105001005", "name": "15% IR Arriendo de Local", "type": "PASIVO"}, {"code": "2105001006", "name": "3% IR Transporte Terrestre", "type": "PASIVO"}, {"code": "2105002", "name": "RETENCIONES POR PRESTAMOS", "type": "PASIVO"}, {"code": "2105002001", "name": "Préstamos Personales", "type": "PASIVO"}, {"code": "2106", "name": "IMPUESTOS POR PAGAR", "type": "PASIVO"}, {"code": "2106001", "name": "IMPUESTO GENERAL AL VALOR", "type": "PASIVO"}, {"code": "2106001001", "name": "15% IVA sobre Ventas de Bienes y Servicios", "type": "PASIVO"}, {"code": "2106001002", "name": "15% IVA sobre Importaciones", "type": "PASIVO"}, {"code": "2106002", "name": "ANTICIPOS DEL 1% PMDM", "type": "PASIVO"}, {"code": "2106002001", "name": "Anticipos del 1% PMDM", "type": "PASIVO"}, {"code": "2106003", "name": "IMPUESTOS SOBRE LA RENTA 30% IR", "type": "PASIVO"}, {"code": "2106003001", "name": "Impuestos Sobre la Renta 30% IR", "type": "PASIVO"}, {"code": "2106004", "name": "IMPUESTOS MUNICIPALES", "type": "PASIVO"}, {"code": "2106004001", "name": "Anticipos del 1% IMI", "type": "PASIVO"}, {"code": "2106004002", "name": "Impuestos de Bienes e Inmuebles IBI", "type": "PASIVO"}, {"code": "2106004003", "name": "Matrículas", "type": "PASIVO"}, {"code": "22", "name": "PASIVOS NO CORRIENTES", "type": "PASIVO"}, {"code": "2201", "name": "CUENTAS POR PAGAR A LARGO PLAZO", "type": "PASIVO"}, {"code": "2201001", "name": "PRESTAMOS FINANCIEROS A LARGO PLAZO", "type": "PASIVO"}, {"code": "2201001001", "name": "BAC Préstamos Bancarios", "type": "PASIVO"}, {"code": "2201002", "name": "CUENTAS POR PAGAR A ACCIONISTAS", "type": "PASIVO"}, {"code": "2201002001", "name": "Cuentas por Pagar a Accionista", "type": "PASIVO"}, {"code": "3", "name": "CAPITAL", "type": "PATRIMONIO"}, {"code": "31", "name": "CAPITAL, RESERVAS Y RESULTADO", "type": "PATRIMONIO"}, {"code": "3101", "name": "CAPITAL", "type": "PATRIMONIO"}, {"code": "3101001", "name": "CAPITAL SOCIAL", "type": "PATRIMONIO"}, {"code": "3101001001", "name": "Capital Social Suscrito", "type": "PATRIMONIO"}, {"code": "3101002", "name": "APORTES AL PATRIMONIO", "type": "PATRIMONIO"}, {"code": "3101002001", "name": "Aportaciones al Patrimonio de Socios", "type": "PATRIMONIO"}, {"code": "3101003", "name": "RESERVA LEGAL", "type": "PATRIMONIO"}, {"code": "3101003001", "name": "Reserva de Capital", "type": "PATRIMONIO"}, {"code": "3101004", "name": "RESULTADOS ACUMULADOS", "type": "PATRIMONIO"}, {"code": "3101004001", "name": "Utilidades de Ejercicios Anteriores", "type": "PATRIMONIO"}, {"code": "3101004002", "name": "Perdidas de Ejercicios Anteriores", "type": "PATRIMONIO"}, {"code": "3101005", "name": "RESULTADOS DEL EJERCICIO", "type": "PATRIMONIO"}, {"code": "3101005001", "name": "Utilidades y/o Perdidas del Ejercicio", "type": "PATRIMONIO"}, {"code": "3101006", "name": "AJUSTES DE PERIODOS ANTERIORES", "type": "PATRIMONIO"}, {"code": "3101006001", "name": "Ajustes de Períodos Anteriores", "type": "PATRIMONIO"}, {"code": "4", "name": "INGRESOS", "type": "INGRESO"}, {"code": "41", "name": "INGRESOS OPERACIONALES", "type": "INGRESO"}, {"code": "4101", "name": "INGRESOS POR VENTAS GRAVADAS", "type": "INGRESO"}, {"code": "4101001", "name": "INGRESOS POR VENTAS DE BIENES Y SERVICIOS", "type": "INGRESO"}, {"code": "4101001001", "name": "Ingreso por Administración de Nómina", "type": "INGRESO"}, {"code": "4101001002", "name": "Ingreso por Renta de Maquinaria Amarilla", "type": "INGRESO"}, {"code": "4101001003", "name": "Ingreso por Renta de Transporte", "type": "INGRESO"}, {"code": "4101001004", "name": "Ingreso por Servicio de Transporte", "type": "INGRESO"}, {"code": "4101001005", "name": "Ingresos por Ventas de Servicio de", "type": "INGRESO"}, {"code": "4102", "name": "INGRESOS POR VENTAS EXENTAS", "type": "INGRESO"}, {"code": "4102001", "name": "INGRESOS POR VENTAS DE BIENES Y SERVICIOS", "type": "INGRESO"}, {"code": "4102001001", "name": "Ingresos Por Servicio de Transporte", "type": "INGRESO"}, {"code": "4103", "name": "INGRESOS POR VENTAS EXONERADAS", "type": "INGRESO"}, {"code": "4103001", "name": "INGRESOS POR VENTA DE BIENES Y SERVICIOS", "type": "INGRESO"}, {"code": "4103001001", "name": "Ingresos por Administración de Nómina", "type": "INGRESO"}, {"code": "4103001002", "name": "Ingreso por Renta de Maquinaria Amarilla", "type": "INGRESO"}, {"code": "4103001003", "name": "Ingreso por Renta de transporte", "type": "INGRESO"}, {"code": "4103001004", "name": "Ingreso por Servicio de Transporte", "type": "INGRESO"}, {"code": "4103001005", "name": "Ingresos por Servicio de Alimentación", "type": "INGRESO"}, {"code": "4103001006", "name": "Ingresos por Servicios Generales", "type": "INGRESO"}, {"code": "5", "name": "COSTOS OPERACIONALES", "type": "GASTO"}, {"code": "51", "name": "COSTOS OPERACIONALES", "type": "GASTO"}, {"code": "5101", "name": "COSTOS DE VENTAS DE BIENES Y SERVICIOS", "type": "GASTO"}, {"code": "5101001", "name": "COSTOS POR ADMINISTRACION DE NOMINA", "type": "GASTO"}, {"code": "5101001001", "name": "Salarios CAMC A", "type": "GASTO"}, {"code": "5101001002", "name": "Horas Extras", "type": "GASTO"}, {"code": "5101001003", "name": "Días Feriados", "type": "GASTO"}, {"code": "5101001004", "name": "Vacaciones", "type": "GASTO"}, {"code": "5101001005", "name": "Décimo Tercer Mes", "type": "GASTO"}, {"code": "5101001006", "name": "Indemnización", "type": "GASTO"}, {"code": "5101001007", "name": "Inss Patronal", "type": "GASTO"}, {"code": "5101001008", "name": "Inatec", "type": "GASTO"}, {"code": "5101001009", "name": "Uniformes del Personal", "type": "GASTO"}, {"code": "5101001010", "name": "Equipos de Protección", "type": "GASTO"}, {"code": "5101001011", "name": "Capacitación al Personal", "type": "GASTO"}, {"code": "5101001012", "name": "Convivios y Reuniones del Personal", "type": "GASTO"}, {"code": "5101001013", "name": "Gastos Legales", "type": "GASTO"}, {"code": "5101002", "name": "COSTOS DE RENTA DE MAQUINAS AMARILLAS", "type": "GASTO"}, {"code": "5101002001", "name": "Costo de Renta de Maquinaria Amarilla", "type": "GASTO"}, {"code": "5101002002", "name": "Costo de Renta de Maquinaria Amarilla Volquete", "type": "GASTO"}, {"code": "5101003", "name": "COSTOS POR RENTA DE TRANSPORTE", "type": "GASTO"}, {"code": "5101003002", "name": "Costos de combustible y Transportes", "type": "GASTO"}, {"code": "5101004", "name": "COSTOS POR SERVICIO DE TRANSPORTE", "type": "GASTO"}, {"code": "5101004001", "name": "Costos de Servicios de Transporte", "type": "GASTO"}, {"code": "5101005001", "name": "Sueldo y Salario Camce 1 B", "type": "GASTO"}, {"code": "5101005002", "name": "Dias Feriados", "type": "GASTO"}, {"code": "5101005003", "name": "Vacaciones", "type": "GASTO"}, {"code": "5101005004", "name": "Aguinaldo", "type": "GASTO"}, {"code": "5101005005", "name": "Aporte Patronal", "type": "GASTO"}, {"code": "5101005006", "name": "Inatec", "type": "GASTO"}, {"code": "5101006001", "name": "Costos por servicios de Alimentacion", "type": "GASTO"}, {"code": "5101007001", "name": "Costos por servicios profesionales", "type": "GASTO"}, {"code": "5101008001", "name": "Costos por viaticos", "type": "GASTO"}, {"code": "6", "name": "GASTOS", "type": "GASTO"}, {"code": "61", "name": "GASTOS OPERATIVOS", "type": "GASTO"}, {"code": "6101", "name": "GASTOS OPERATIVOS", "type": "GASTO"}, {"code": "6101001", "name": "GASTOS DE ADMINISTRACION", "type": "GASTO"}, {"code": "6101001001", "name": "Salarios", "type": "GASTO"}, {"code": "6101001002", "name": "Horas Extras", "type": "GASTO"}, {"code": "6101001003", "name": "Incentivos", "type": "GASTO"}, {"code": "6101001004", "name": "Vacaciones", "type": "GASTO"}, {"code": "6101001005", "name": "Décimo Tercer Mes", "type": "GASTO"}, {"code": "6101001006", "name": "Indemnización", "type": "GASTO"}, {"code": "6101001007", "name": "Inss Patronal", "type": "GASTO"}, {"code": "6101001008", "name": "Inatec", "type": "GASTO"}, {"code": "6101001009", "name": "Uniformes del Personal", "type": "GASTO"}, {"code": "6101001010", "name": "Convivios y Reuniones del Personal", "type": "GASTO"}, {"code": "6101001011", "name": "Combustible y Lubricantes", "type": "GASTO"}, {"code": "6101001012", "name": "Servicios de Asesoría Legal", "type": "GASTO"}, {"code": "6101001013", "name": "Servicios de Informatica", "type": "GASTO"}, {"code": "6101001014", "name": "Servicios Profesionales", "type": "GASTO"}, {"code": "6101001015", "name": "Servicios Técnicos", "type": "GASTO"}, {"code": "6101001016", "name": "Impuestos Municipales", "type": "GASTO"}, {"code": "6101001017", "name": "Impuesto de Bienes Inmuebles", "type": "GASTO"}, {"code": "6101001018", "name": "Gastos de Matrícula", "type": "GASTO"}, {"code": "6101001019", "name": "Servicio de Basura", "type": "GASTO"}, {"code": "6101001020", "name": "Timbres Fiscales", "type": "GASTO"}, {"code": "6101001021", "name": "Consumo de Agua Purificada", "type": "GASTO"}, {"code": "6101001022", "name": "Arrendamientos de Edificios e Instalaciones", "type": "GASTO"}, {"code": "6101001023", "name": "Arrendamiento de Espacios Publicitarios", "type": "GASTO"}, {"code": "6101001024", "name": "Cuotas y Suscripciones", "type": "GASTO"}, {"code": "6101001025", "name": "Servicios de Mensajería y Paquetería", "type": "GASTO"}, {"code": "6101001026", "name": "Servicio Energía Eléctrica", "type": "GASTO"}, {"code": "6101001027", "name": "Servicio Agua Potable", "type": "GASTO"}, {"code": "6101001028", "name": "Servicio Telefonía Fija", "type": "GASTO"}, {"code": "6101001029", "name": "Servicio Telefonía Celular", "type": "GASTO"}, {"code": "6101001030", "name": "Servicio Internet", "type": "GASTO"}, {"code": "6101001031", "name": "Servicios de Seguridad y Vigilancia", "type": "GASTO"}, {"code": "6101001032", "name": "Mantenimiento de Edificio", "type": "GASTO"}, {"code": "6101001033", "name": "Mantenimiento de Mobiliario y Equipo de Oficina", "type": "GASTO"}, {"code": "6101001034", "name": "Mantenimiento de Equipo de Reparto", "type": "GASTO"}, {"code": "6101001035", "type": "GASTO"}, {"code": "6101001036", "name": "Mantenimiento de Herramientas y Enseres", "type": "GASTO"}, {"code": "6101001037", "name": "Papelería y Utiles de Oficina", "type": "GASTO"}, {"code": "6101001038", "name": "Gastos de Cafeteria", "type": "GASTO"}, {"code": "6101001039", "name": "Materiales y suministros de Limpieza", "type": "GASTO"}, {"code": "6101001040", "name": "Atenciones a Clientes", "type": "GASTO"}, {"code": "6101001041", "name": "Dieta", "type": "GASTO"}, {"code": "6101001042", "name": "Gastos de Representación", "type": "GASTO"}, {"code": "6101001043", "name": "Viajes al Exterior", "type": "GASTO"}, {"code": "6101001044", "name": "Atenciones al Personal", "type": "GASTO"}, {"code": "6101001045", "name": "Depreciacion Acumulada de Edificio", "type": "GASTO"}, {"code": "6101001046", "name": "Depreciacion Acumulada de Mobiliario y Equipo", "type": "GASTO"}, {"code": "6101001047", "name": "Depreciacion Acumuladade Equipo de Reparto", "type": "GASTO"}, {"code": "6101001048", "name": "Depreciacion Acumuladade Equipo de Computo", "type": "GASTO"}, {"code": "6101001049", "name": "Depreciacion Acumuladade Herramientas y", "type": "GASTO"}, {"code": "6101001050", "name": "Depreciacion Acumulada de Mejoras a la", "type": "GASTO"}, {"code": "6101001051", "name": "Amortizaciones por Licencias y Software", "type": "GASTO"}, {"code": "6101001052", "name": "Amortizaciones por Seguros de Vehículos", "type": "GASTO"}, {"code": "6101001053", "name": "Amortizaciones por Seguros Contra Incedio", "type": "GASTO"}, {"code": "6101001054", "name": "Amortizaciones por Seguros Bienes Inmuebles", "type": "GASTO"}, {"code": "6101001055", "name": "Botiquin y medicamentos", "type": "GASTO"}, {"code": "6101001056", "name": "Materiales Ferreteros", "type": "GASTO"}, {"code": "6101001057", "name": "Servicio de Imprenta", "type": "GASTO"}, {"code": "6101001058", "name": "Sticker de Rodamiento", "type": "GASTO"}, {"code": "6101001059", "name": "Repuestos y Accesorios", "type": "GASTO"}, {"code": "6101001060", "name": "Viaticos al personal", "type": "GASTO"}, {"code": "6101001064", "name": "Primas de seguro", "type": "GASTO"}, {"code": "6101001065", "name": "Actos Juridicos", "type": "GASTO"}, {"code": "6101001066", "name": "Otros Impuestos XT", "type": "GASTO"}, {"code": "6101001067", "name": "Llantas, Neumaticos y Accesorios", "type": "GASTO"}, {"code": "7", "name": "OTROS INGRESOS", "type": "INGRESO"}, {"code": "71", "name": "OTROS INGRESOS", "type": "INGRESO"}, {"code": "7101", "name": "INGRESOS FINANCIEROS", "type": "INGRESO"}, {"code": "7101001", "name": "INGRESOS FINANCIEROS", "type": "INGRESO"}, {"code": "7101001001", "name": "Intereses Bancarios", "type": "INGRESO"}, {"code": "7101001002", "name": "Utilidad por Diferencial Cambiario", "type": "INGRESO"}, {"code": "7102", "name": "OTROS INGRESOS", "type": "INGRESO"}, {"code": "7102001", "name": "OTROS INGRESOS", "type": "INGRESO"}, {"code": "7102001001", "name": "Sobrantes en Caja", "type": "INGRESO"}, {"code": "7102001002", "name": "Utilidad en Venta de Activos Fijos", "type": "INGRESO"}, {"code": "7102001003", "name": "Otros", "type": "INGRESO"}, {"code": "7102001004", "name": "Descuento sobre compras", "type": "INGRESO"}, {"code": "8", "name": "OTROS GASTOS", "type": "GASTO"}, {"code": "81", "name": "OTROS GASTOS DE OPERACION", "type": "GASTO"}, {"code": "8101", "name": "GASTOS POR OPERACIONES FINANCIERAS", "type": "GASTO"}, {"code": "8101001", "name": "GASTOS FINANCIEROS", "type": "GASTO"}, {"code": "8101001001", "name": "Comisiones Bancarias", "type": "GASTO"}, {"code": "8101001002", "name": "Comisión por Ventas con Tarjeta Bancaria", "type": "GASTO"}, {"code": "8101001003", "name": "Perdida en Diferencial Cambiario", "type": "GASTO"}, {"code": "8101001004", "name": "Intereses Bancarios", "type": "GASTO"}, {"code": "8101001005", "name": "Alquiler de POS", "type": "GASTO"}, {"code": "8101001006", "name": "Emisión de Estados de Cuenta", "type": "GASTO"}, {"code": "8102", "name": "IMPUESTOS SOBRE LA RENTA", "type": "GASTO"}, {"code": "8102001", "name": "IMPUESTOS SOBRE LA RENTA", "type": "GASTO"}, {"code": "8102001001", "name": "Impuesto sobre la Renta 30% Anual", "type": "GASTO"}, {"code": "8103", "name": "GASTOS NO DEDUCIBLES", "type": "GASTO"}, {"code": "8103001", "name": "GASTOS NO DEDUCIBLES DEL IR", "type": "GASTO"}, {"code": "8103001001", "name": "Multas y Recargos", "type": "GASTO"}, {"code": "8103001002", "name": "Gastos por Deterioro de Activos", "type": "GASTO"}, {"code": "8103001003", "name": "Ganancia o Pérdida en Venta de Activos Fijos", "type": "GASTO"}, {"code": "8103001004", "name": "Gastos no Deducibles", "type": "GASTO"}, {"code": "8103001005", "name": "Otros", "type": "GASTO"}];
+
+    function createInitialState() {
+      return {
+        loggedInUser: null,
+        activeCompanyId: 'emp-1',
+        activeStatement: 'balanza',
+        selectedVoucherCd: 'CD01-0001',
+        companies: [
+          {
+            id: 'emp-1',
+            razonSocial: 'Comercializadora El Sol S.A.',
+            ruc: '20519843210',
+            moneda: 'USD ($)',
+            periodo: '2026',
+            direccion: 'Av. Principal 450, Ciudad · Tel: (01) 445-8900',
+            elaboradoPor: 'Lic. Carlos Mendoza',
+            revisadoPor: 'CPA Sofía Herrera',
+            autorizadoPor: 'Ing. Roberto Solís'
+          }
+        ],
+        plan: DEFAULT_PLAN.map(x => ({ ...x })),
+        entries: [
+          {
+            cd: 'CD01-0001',
+            fecha: '2026-01-05',
+            glosa: 'Aporte inicial de capital de socios en efectivo y banco',
+            lines: [
+              { code: '1101', name: 'Caja General', debe: 5000, haber: 0 },
+              { code: '1102', name: 'Banco Nacional Cuenta Corriente', debe: 25000, haber: 0 },
+              { code: '3101', name: 'Capital Social', debe: 0, haber: 30000 }
+            ]
+          },
+          {
+            cd: 'CD01-0002',
+            fecha: '2026-01-12',
+            glosa: 'Compra de mercadería para inventario al contado con banco',
+            lines: [
+              { code: '1110', name: 'Inventario de Mercaderías', debe: 8000, haber: 0 },
+              { code: '1102', name: 'Banco Nacional Cuenta Corriente', debe: 0, haber: 8000 }
+            ]
+          },
+          {
+            cd: 'CD01-0003',
+            fecha: '2026-01-20',
+            glosa: 'Venta de mercadería al contado y costo de venta correspondiente',
+            lines: [
+              { code: '1101', name: 'Caja General', debe: 6500, haber: 0 },
+              { code: '4101', name: 'Ventas de Mercaderías', debe: 0, haber: 6500 },
+              { code: '5101', name: 'Costo de Ventas', debe: 3800, haber: 0 },
+              { code: '1110', name: 'Inventario de Mercaderías', debe: 0, haber: 3800 }
+            ]
+          }
+        ]
+      };
+    }
+
+    function loadState() {
+      return createInitialState();
+    }
+
+    let state = loadState();
+    let draftLines = [];
+    let editingAccountCode = null;
+
+    function persistState() {
+      const snapshot = { ...state, loggedInUser: null };
+      safeStorage.set(STORAGE_KEY, JSON.stringify(snapshot));
+    }
+
+    function showToast(msg, type = 'info') {
+      const el = document.getElementById('toast-banner');
+      if (!el) return;
+      el.className = 'no-print mb-4 px-4 py-3 rounded-xl text-sm font-medium border shadow-sm';
+      if (type === 'success') {
+        el.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200');
+      } else if (type === 'error') {
+        el.classList.add('bg-rose-50', 'text-rose-800', 'border-rose-200');
+      } else {
+        el.classList.add('bg-sky-50', 'text-sky-800', 'border-sky-200');
+      }
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => el.classList.add('hidden'), 3600);
+    }
+
+    function fmtMoney(n) {
+      const val = Number(n) || 0;
+      return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function getActiveCompany() {
+      return state.companies.find(c => c.id === state.activeCompanyId) || state.companies[0];
+    }
+
+    function computeNextCd(dateStr) {
+      const month = (dateStr && dateStr.split('-')[1]) ? dateStr.split('-')[1] : '01';
+      const prefix = `CD${month}-`;
+      let maxNum = 0;
+      state.entries.forEach(e => {
+        if (typeof e.cd === 'string' && e.cd.startsWith(prefix)) {
+          const num = parseInt(e.cd.slice(prefix.length), 10);
+          if (!Number.isNaN(num) && num > maxNum) maxNum = num;
+        }
+      });
+      return `${prefix}${String(maxNum + 1).padStart(4, '0')}`;
+    }
+
+    function enterApp(user, shouldPersistInitial = false) {
+      state.loggedInUser = user;
+      if (shouldPersistInitial) {
+        persistState();
+      }
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('erp-app').classList.remove('hidden');
+      navigateTo('portada');
+      renderAll();
+    }
+
+    document.getElementById('login-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (window.location.protocol === 'file:') {
+        const errorEl = document.getElementById('login-error');
+        errorEl.textContent = 'No abra ContabERP.html con doble clic. Este sistema necesita el servidor cloud. Publique el proyecto y entre mediante la dirección HTTPS de ContabERP (por ejemplo, https://su-dominio.onrender.com).';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+      const u = document.getElementById('login-user').value.trim();
+      const p = document.getElementById('login-pass').value;
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/login', false);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify({ username: u, password: p }));
+        const result = JSON.parse(xhr.responseText || '{}');
+        if (xhr.status !== 200 || !result.ok) throw new Error(result.error || 'Credenciales incorrectas');
+        const cloudRaw = safeStorage.get(STORAGE_KEY);
+        let shouldPersistInitial = false;
+        if (cloudRaw) {
+          const parsed = JSON.parse(cloudRaw);
+          state = { ...createInitialState(), ...parsed, loggedInUser: u,
+            companies: Array.isArray(parsed.companies) && parsed.companies.length ? parsed.companies : createInitialState().companies,
+            plan: Array.isArray(parsed.plan) && parsed.plan.length ? parsed.plan : DEFAULT_PLAN.map(x => ({...x})),
+            entries: Array.isArray(parsed.entries) ? parsed.entries : [] };
+        } else {
+          state = createInitialState();
+          state.loggedInUser = u;
+          shouldPersistInitial = true;
+        }
+        document.getElementById('login-error').classList.add('hidden');
+        enterApp(u, shouldPersistInitial);
+      } catch (err) {
+        const errorEl = document.getElementById('login-error');
+        errorEl.textContent = err.message || 'No fue posible iniciar sesión.';
+        errorEl.classList.remove('hidden');
+      }
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      try {
+        const xhr = new XMLHttpRequest(); xhr.open('POST', '/api/logout', false); xhr.send(null);
+      } catch (_) {}
+      state.loggedInUser = null;
+      document.getElementById('erp-app').classList.add('hidden');
+      document.getElementById('login-screen').classList.remove('hidden');
+    });
+
+    function navigateTo(viewName) {
+      document.querySelectorAll('.erp-view').forEach(v => v.classList.add('hidden'));
+      const target = document.getElementById(`view-${viewName}`);
+      if (target) target.classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        const active = btn.dataset.nav === viewName;
+        btn.classList.toggle('bg-sky-600', active);
+        btn.classList.toggle('text-white', active);
+        btn.classList.toggle('text-slate-200', !active);
+      });
+    }
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        navigateTo(btn.dataset.nav);
+        renderAll();
+      });
+    });
+
+    document.querySelectorAll('[data-jump]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        navigateTo(btn.dataset.jump);
+        renderAll();
+      });
+    });
+
+    document.getElementById('toggle-sidebar-btn').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('hidden');
+    });
+
+    const searchInput = document.getElementById('smart-account-search');
+    const searchResults = document.getElementById('smart-search-results');
+
+    function renderSearchDropdown(query) {
+      const q = (query || '').trim().toLowerCase();
+      const matches = state.plan.filter(acc =>
+        !q ||
+        acc.code.toLowerCase().includes(q) ||
+        acc.name.toLowerCase().includes(q) ||
+        acc.type.toLowerCase().includes(q)
+      );
+      if (!matches.length) {
+        searchResults.innerHTML = `<div class="px-3.5 py-2.5 text-xs text-slate-500">Sin coincidencias en el plan de cuentas.</div>`;
+        searchResults.classList.remove('hidden');
+        return;
+      }
+      searchResults.innerHTML = matches.slice(0, 12).map(acc => `
+        <button type="button" data-code="${acc.code}" data-name="${acc.name}" class="search-pick w-full text-left px-3.5 py-2 hover:bg-sky-50 flex items-center justify-between gap-2 text-xs cursor-pointer">
+          <div>
+            <span class="font-mono font-bold text-sky-700 mr-2">${acc.code}</span>
+            <span class="font-semibold text-slate-800">${acc.name}</span>
+          </div>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">${acc.type}</span>
+        </button>
+      `).join('');
+      searchResults.classList.remove('hidden');
+
+      searchResults.querySelectorAll('.search-pick').forEach(item => {
+        item.addEventListener('click', () => {
+          document.getElementById('line-code').value = item.dataset.code;
+          document.getElementById('line-name').value = item.dataset.name;
+          searchInput.value = `${item.dataset.code} - ${item.dataset.name}`;
+          searchResults.classList.add('hidden');
+          document.getElementById('line-debe').focus();
+        });
+      });
+    }
+
+    searchInput.addEventListener('focus', () => renderSearchDropdown(searchInput.value));
+    searchInput.addEventListener('input', () => renderSearchDropdown(searchInput.value));
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#smart-account-search') && !e.target.closest('#smart-search-results')) {
+        searchResults.classList.add('hidden');
+      }
+    });
+
+    function renderDraftLines() {
+      const tbody = document.getElementById('draft-lines-body');
+      if (!draftLines.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-xs text-slate-400">Agregue al menos dos líneas (Debe y Haber) para registrar el asiento.</td></tr>`;
+      } else {
+        tbody.innerHTML = draftLines.map((l, idx) => `
+          <tr>
+            <td class="py-2 px-3 font-mono font-semibold text-sky-700">${l.code}</td>
+            <td class="py-2 px-3 text-slate-800">${l.name}</td>
+            <td class="py-2 px-3 text-right">${fmtMoney(l.debe)}</td>
+            <td class="py-2 px-3 text-right">${fmtMoney(l.haber)}</td>
+            <td class="py-2 px-3 text-center">
+              <button type="button" data-idx="${idx}" class="remove-draft-line text-rose-600 hover:underline text-xs font-bold cursor-pointer">✕</button>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      const totD = draftLines.reduce((acc, l) => acc + (Number(l.debe) || 0), 0);
+      const totH = draftLines.reduce((acc, l) => acc + (Number(l.haber) || 0), 0);
+      const diff = Math.abs(totD - totH);
+
+      document.getElementById('draft-total-debe').textContent = `$${fmtMoney(totD)}`;
+      document.getElementById('draft-total-haber').textContent = `$${fmtMoney(totH)}`;
+      const diffCell = document.getElementById('draft-diff-cell');
+      diffCell.textContent = `Dif: $${fmtMoney(diff)}`;
+      diffCell.className = diff < 0.005 && totD > 0
+        ? 'py-2.5 px-3 text-center text-xs font-bold text-emerald-700'
+        : 'py-2.5 px-3 text-center text-xs font-bold text-rose-600';
+
+      tbody.querySelectorAll('.remove-draft-line').forEach(btn => {
+        btn.addEventListener('click', () => {
+          draftLines.splice(Number(btn.dataset.idx), 1);
+          renderDraftLines();
+        });
+      });
+    }
+
+    document.getElementById('add-line-btn').addEventListener('click', () => {
+      const code = document.getElementById('line-code').value.trim();
+      const name = document.getElementById('line-name').value.trim();
+      const debe = parseFloat(document.getElementById('line-debe').value) || 0;
+      const haber = parseFloat(document.getElementById('line-haber').value) || 0;
+
+      if (!code || !name) {
+        showToast('Seleccione o ingrese código y nombre de cuenta.', 'error');
+        return;
+      }
+      if (debe <= 0 && haber <= 0) {
+        showToast('Ingrese un monto mayor a 0 en Debe o Haber.', 'error');
+        return;
+      }
+      draftLines.push({ code, name, debe, haber });
+      document.getElementById('line-debe').value = '0.00';
+      document.getElementById('line-haber').value = '0.00';
+      renderDraftLines();
+    });
+
+    document.getElementById('clear-draft-btn').addEventListener('click', () => {
+      draftLines = [];
+      document.getElementById('cd-glosa').value = '';
+      renderDraftLines();
+    });
+
+    document.getElementById('cd-fecha').addEventListener('change', (e) => {
+      document.getElementById('preview-cd-number').textContent = computeNextCd(e.target.value);
+    });
+
+    let editingCdNumber = null;
+
+    function refreshModifyCdSelect() {
+      const sel = document.getElementById('modify-cd-select');
+      if (!sel) return;
+      const prev = sel.value;
+      sel.innerHTML = `<option value="">-- Seleccionar --</option>` +
+        state.entries.map(e => `<option value="${e.cd}">${e.cd} (${e.fecha})</option>`).join('');
+      if (prev && state.entries.some(e => e.cd === prev)) sel.value = prev;
+    }
+
+    document.getElementById('load-cd-edit-btn').addEventListener('click', () => {
+      const targetCd = document.getElementById('modify-cd-select').value;
+      if (!targetCd) {
+        showToast('Seleccione un comprobante CD para modificar.', 'error');
+        return;
+      }
+      const found = state.entries.find(e => e.cd === targetCd);
+      if (!found) {
+        showToast('No se encontró el comprobante seleccionado.', 'error');
+        return;
+      }
+      editingCdNumber = found.cd;
+      document.getElementById('cd-fecha').value = found.fecha || '2026-01-15';
+      document.getElementById('cd-glosa').value = found.glosa || '';
+      draftLines = (found.lines || []).map(l => ({ ...l }));
+      document.getElementById('preview-cd-number').textContent = `${found.cd} (Editando)`;
+      renderDraftLines();
+      showToast(`Cargado ${found.cd} para modificar. Ajuste líneas y guarde.`, 'info');
+    });
+
+    function importEntriesFromRows(rows) {
+      const grouped = new Map();
+      for (const row of rows || []) {
+        if (!Array.isArray(row) || row.length < 4) continue;
+        const firstCell = String(row[0] ?? '').replace(/^\uFEFF/, '').trim();
+        if (!firstCell || ['numcd', 'cd', 'comprobante'].includes(firstCell.toLowerCase())) continue;
+
+        const cd = firstCell;
+        const fecha = String(row[1] ?? '2026-01-15').trim();
+        const code = String(row[2] ?? '').trim();
+        const name = String(row[3] ?? '').trim() || (state.plan.find(a => a.code === code)?.name || 'Cuenta');
+        const glosa = String(row[4] ?? '').trim() || `Importado ${cd}`;
+        const debe = parseFloat(String(row[5] ?? '0').replace(/,/g, '')) || 0;
+        const haber = parseFloat(String(row[6] ?? '0').replace(/,/g, '')) || 0;
+
+        if (!code || (debe <= 0 && haber <= 0)) continue;
+        if (!grouped.has(cd)) {
+          grouped.set(cd, { cd, fecha, glosa, lines: [] });
+        }
+        grouped.get(cd).lines.push({ code, name, debe, haber });
+      }
+
+      let count = 0;
+      grouped.forEach((entry, cd) => {
+        const totD = entry.lines.reduce((s, l) => s + l.debe, 0);
+        const totH = entry.lines.reduce((s, l) => s + l.haber, 0);
+        if (entry.lines.length >= 2 && Math.abs(totD - totH) <= 0.01) {
+          const idx = state.entries.findIndex(e => e.cd === cd);
+          if (idx >= 0) state.entries[idx] = entry;
+          else state.entries.push(entry);
+          count += 1;
+        }
+      });
+      return count;
+    }
+
+    document.getElementById('import-cd-file-input').addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const lower = file.name.toLowerCase();
+      const isExcel = lower.endsWith('.xlsx') || lower.endsWith('.xls');
+
+      const finishImport = (rows) => {
+        const imported = importEntriesFromRows(rows);
+        if (!imported) {
+          showToast('No se encontraron CDs cuadrados válidos. Columnas: NumCD,Fecha,Codigo,Cuenta,Glosa,Debe,Haber.', 'error');
+          return;
+        }
+        persistState();
+        renderAll();
+        showToast(`${imported} comprobante(s) CD importado(s)/actualizado(s).`, 'success');
+      };
+
+      if (isExcel && window.XLSX) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const bytes = new Uint8Array(evt.target.result);
+          const wb = window.XLSX.read(bytes, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          finishImport(window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }));
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const txt = String(evt.target?.result || '').replace(/^\uFEFF/, '');
+          const rows = txt.split(/\r?\n/).filter(Boolean).map(line => {
+            const sep = line.includes('\t') ? '\t' : (line.includes(';') ? ';' : ',');
+            return line.split(sep).map(c => c.replace(/^["']|["']$/g, '').trim());
+          });
+          finishImport(rows);
+        };
+        reader.readAsText(file, 'UTF-8');
+      }
+      e.target.value = '';
+    });
+
+    document.getElementById('save-cd-btn').addEventListener('click', () => {
+      const fecha = document.getElementById('cd-fecha').value;
+      const glosa = document.getElementById('cd-glosa').value.trim() || 'Asiento de diario';
+      if (!fecha) {
+        showToast('Seleccione una fecha válida.', 'error');
+        return;
+      }
+      if (draftLines.length < 2) {
+        showToast('Un asiento contable requiere al menos 2 líneas.', 'error');
+        return;
+      }
+      const totD = draftLines.reduce((acc, l) => acc + l.debe, 0);
+      const totH = draftLines.reduce((acc, l) => acc + l.haber, 0);
+      if (Math.abs(totD - totH) > 0.005 || totD <= 0) {
+        showToast('El asiento no está cuadrado (Total Debe debe igualar Total Haber).', 'error');
+        return;
+      }
+
+      const wasEditing = Boolean(editingCdNumber);
+      const cdNumber = editingCdNumber || computeNextCd(fecha);
+      const payload = {
+        cd: cdNumber,
+        fecha,
+        glosa,
+        lines: draftLines.map(l => ({ ...l }))
+      };
+
+      if (wasEditing) {
+        const idx = state.entries.findIndex(e => e.cd === editingCdNumber);
+        if (idx >= 0) state.entries[idx] = payload;
+        else state.entries.push(payload);
+        editingCdNumber = null;
+      } else {
+        state.entries.push(payload);
+      }
+
+      state.selectedVoucherCd = cdNumber;
+      persistState();
+
+      draftLines = [];
+      document.getElementById('cd-glosa').value = '';
+      document.getElementById('preview-cd-number').textContent = computeNextCd(fecha);
+      renderAll();
+      showToast(
+        wasEditing
+          ? `Comprobante ${cdNumber} modificado y actualizado en todo el sistema.`
+          : `Comprobante ${cdNumber} guardado en Libro Diario y listo para Respaldo.`,
+        'success'
+      );
+    });
+
+    function isEntryInSelectedPeriod() {
+      const mode = document.getElementById('stmt-period-select')?.value || 'ALL';
+      if (mode === 'ALL') return () => true;
+      if (mode.includes('-') && mode !== 'CUSTOM') {
+        const [mStart, mEnd] = mode.split('-');
+        return (entry) => {
+          const m = (entry.fecha || '').split('-')[1] || '';
+          return m >= mStart && m <= mEnd;
+        };
+      }
+      if (mode === 'CUSTOM') {
+        const mStart = document.getElementById('stmt-month-from')?.value || '01';
+        const mEnd = document.getElementById('stmt-month-to')?.value || '12';
+        const minM = mStart <= mEnd ? mStart : mEnd;
+        const maxM = mStart <= mEnd ? mEnd : mStart;
+        return (entry) => {
+          const m = (entry.fecha || '').split('-')[1] || '';
+          return m >= minM && m <= maxM;
+        };
+      }
+      return (entry) => ((entry.fecha || '').split('-')[1] || '') === mode;
+    }
+
+    function getPeriodLabel() {
+      const monthNames = {
+        '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
+        '05': 'Mayo', '06': 'Junio', '07': 'Julio', '08': 'Agosto',
+        '09': 'Septiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre'
+      };
+      const mode = document.getElementById('stmt-period-select')?.value || 'ALL';
+      if (mode === 'ALL') return 'Todo el Ejercicio';
+      if (mode === '01-03') return 'Enero a Marzo';
+      if (mode === '01-06') return 'Enero a Junio';
+      if (mode === '07-12') return 'Julio a Diciembre';
+      if (mode === 'CUSTOM') {
+        const m1 = document.getElementById('stmt-month-from')?.value || '01';
+        const m2 = document.getElementById('stmt-month-to')?.value || '12';
+        return `${monthNames[m1] || m1} a ${monthNames[m2] || m2}`;
+      }
+      return `Solo ${monthNames[mode] || mode}`;
+    }
+
+    function getAccountBalances(entriesFilterFn = null) {
+      const map = new Map();
+      state.plan.forEach(acc => {
+        map.set(acc.code, {
+          code: acc.code,
+          name: acc.name,
+          type: acc.type,
+          debe: 0,
+          haber: 0
+        });
+      });
+
+      const listEntries = typeof entriesFilterFn === 'function'
+        ? state.entries.filter(entriesFilterFn)
+        : state.entries;
+
+      listEntries.forEach(entry => {
+        entry.lines.forEach(line => {
+          if (!map.has(line.code)) {
+            const firstDigit = line.code.charAt(0);
+            const inferredType =
+              firstDigit === '1' ? 'ACTIVO' :
+              firstDigit === '2' ? 'PASIVO' :
+              firstDigit === '3' ? 'PATRIMONIO' :
+              firstDigit === '4' ? 'INGRESO' : 'GASTO';
+            map.set(line.code, {
+              code: line.code,
+              name: line.name,
+              type: inferredType,
+              debe: 0,
+              haber: 0
+            });
+          }
+          const item = map.get(line.code);
+          item.debe += Number(line.debe) || 0;
+          item.haber += Number(line.haber) || 0;
+        });
+      });
+
+      return Array.from(map.values()).map(item => {
+        const isDebitNormal = item.type === 'ACTIVO' || item.type === 'GASTO';
+        const saldo = isDebitNormal ? item.debe - item.haber : item.haber - item.debe;
+        return { ...item, saldo };
+      });
+    }
+
+    function renderHeaderAndDashboard() {
+      const emp = getActiveCompany();
+      document.getElementById('topbar-company').textContent = emp.razonSocial;
+      document.getElementById('topbar-ruc-period').textContent = `RUC: ${emp.ruc} · Ejercicio Fiscal ${emp.periodo}`;
+      document.getElementById('topbar-user').textContent = `${state.loggedInUser || 'admin'} (Contador General)`;
+
+      const storageLabel = safeStorage.isPersistent ? 'PostgreSQL Cloud' : 'PostgreSQL Cloud';
+      document.getElementById('topbar-storage-text').textContent = storageLabel;
+      document.getElementById('storage-mode-badge').innerHTML =
+        `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> ${storageLabel}`;
+
+      document.getElementById('dash-company-title').textContent = emp.razonSocial;
+      document.getElementById('dash-company-meta').textContent = `RUC ${emp.ruc} · Moneda: ${emp.moneda} · Ejercicio ${emp.periodo}`;
+
+      const totalEntries = state.entries.length;
+      const totalLines = state.entries.reduce((s, e) => s + e.lines.length, 0);
+      const totalVol = state.entries.reduce((s, e) => s + e.lines.reduce((a, l) => a + l.debe, 0), 0);
+
+      const balances = getAccountBalances();
+      const efectivo = balances
+        .filter(b => b.type === 'ACTIVO' && b.code.startsWith('110'))
+        .reduce((s, b) => s + b.saldo, 0);
+
+      const ingresos = balances.filter(b => b.type === 'INGRESO').reduce((s, b) => s + b.saldo, 0);
+      const gastos = balances.filter(b => b.type === 'GASTO').reduce((s, b) => s + b.saldo, 0);
+      const utilidad = ingresos - gastos;
+
+      document.getElementById('kpi-asientos').textContent = String(totalEntries);
+      document.getElementById('kpi-asientos-sub').textContent = `${totalLines} líneas registradas en diario`;
+      document.getElementById('kpi-volumen').textContent = `$${fmtMoney(totalVol)}`;
+      document.getElementById('kpi-efectivo').textContent = `$${fmtMoney(efectivo)}`;
+      const utilEl = document.getElementById('kpi-utilidad');
+      utilEl.textContent = `${utilidad < 0 ? '-' : ''}$${fmtMoney(Math.abs(utilidad))}`;
+      utilEl.className = `text-2xl font-bold mt-1 tabular-nums ${utilidad >= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
+
+      const recentBody = document.getElementById('dash-recent-body');
+      if (!state.entries.length) {
+        recentBody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-xs text-slate-400">No hay comprobantes registrados. Use "+ Agregar Asiento o CD" para comenzar.</td></tr>`;
+      } else {
+        recentBody.innerHTML = [...state.entries].reverse().slice(0, 6).map(e => {
+          const d = e.lines.reduce((s, l) => s + l.debe, 0);
+          const h = e.lines.reduce((s, l) => s + l.haber, 0);
+          return `
+            <tr>
+              <td class="py-3 px-4 font-mono font-bold text-sky-700">${e.cd}</td>
+              <td class="py-3 px-4 text-slate-600">${e.fecha}</td>
+              <td class="py-3 px-4 text-slate-800">${e.glosa}</td>
+              <td class="py-3 px-4 text-right tabular-nums">$${fmtMoney(d)}</td>
+              <td class="py-3 px-4 text-right tabular-nums">$${fmtMoney(h)}</td>
+              <td class="py-3 px-4 text-center">
+                <button type="button" data-open-cd="${e.cd}" class="open-cd-btn px-2.5 py-1 rounded bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-semibold cursor-pointer">
+                  Ver CD
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        recentBody.querySelectorAll('.open-cd-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.selectedVoucherCd = btn.dataset.openCd;
+            persistState();
+            navigateTo('comprobante');
+            renderAll();
+          });
+        });
+      }
+    }
+
+    function renderDiarioHistory() {
+      refreshModifyCdSelect();
+      if (!editingCdNumber) {
+        document.getElementById('preview-cd-number').textContent = computeNextCd(document.getElementById('cd-fecha').value);
+      }
+      renderDraftLines();
+
+      const monthFilter = document.getElementById('filter-cd-month').value;
+      const textFilter = (document.getElementById('filter-cd-text').value || '').trim().toLowerCase();
+
+      const rows = [];
+      state.entries.forEach(e => {
+        const entryMonth = (e.fecha || '').split('-')[1] || '';
+        if (monthFilter !== 'ALL' && entryMonth !== monthFilter) return;
+        const hay = `${e.cd} ${e.glosa} ${e.fecha}`.toLowerCase();
+        if (textFilter && !hay.includes(textFilter)) return;
+
+        e.lines.forEach((l, idx) => {
+          rows.push({
+            cd: e.cd,
+            fecha: e.fecha,
+            code: l.code,
+            name: l.name,
+            glosa: e.glosa,
+            debe: l.debe,
+            haber: l.haber,
+            showAction: idx === 0
+          });
+        });
+      });
+
+      const tbody = document.getElementById('diario-history-body');
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-xs text-slate-400">Sin movimientos en el Libro Diario con el filtro actual.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td class="py-2.5 px-3 font-mono font-bold text-sky-700">${r.cd}</td>
+          <td class="py-2.5 px-3 text-slate-600">${r.fecha}</td>
+          <td class="py-2.5 px-3 font-mono text-slate-700">${r.code}</td>
+          <td class="py-2.5 px-3 text-slate-800">${r.name}</td>
+          <td class="py-2.5 px-3 text-slate-600">${r.glosa}</td>
+          <td class="py-2.5 px-3 text-right">${fmtMoney(r.debe)}</td>
+          <td class="py-2.5 px-3 text-right">${fmtMoney(r.haber)}</td>
+          <td class="py-2.5 px-3 text-center">
+            ${r.showAction ? `<button type="button" data-cd-pdf="${r.cd}" class="go-cd-pdf px-2 py-1 rounded bg-slate-100 hover:bg-sky-100 text-sky-800 text-xs font-semibold cursor-pointer">PDF</button>` : ''}
+          </td>
+        </tr>
+      `).join('');
+
+      tbody.querySelectorAll('.go-cd-pdf').forEach(b => {
+        b.addEventListener('click', () => {
+          state.selectedVoucherCd = b.dataset.cdPdf;
+          persistState();
+          navigateTo('comprobante');
+          renderAll();
+        });
+      });
+    }
+
+    document.getElementById('filter-cd-month').addEventListener('change', renderDiarioHistory);
+    document.getElementById('filter-cd-text').addEventListener('input', renderDiarioHistory);
+
+    function renderMayor() {
+      const sel = document.getElementById('mayor-account-select');
+      const prevVal = sel.value;
+      sel.innerHTML = state.plan.map(acc => `<option value="${acc.code}">${acc.code} — ${acc.name} (${acc.type})</option>`).join('');
+      if (prevVal && state.plan.some(a => a.code === prevVal)) {
+        sel.value = prevVal;
+      }
+
+      const code = sel.value;
+      const filterText = (document.getElementById('mayor-filter-text').value || '').trim().toLowerCase();
+      const accObj = state.plan.find(a => a.code === code) || { code, name: 'Cuenta', type: 'ACTIVO' };
+      const isDebitNormal = accObj.type === 'ACTIVO' || accObj.type === 'GASTO';
+
+      let runningSaldo = 0;
+      let sumD = 0;
+      let sumH = 0;
+      const movements = [];
+
+      state.entries.forEach(e => {
+        e.lines.forEach(l => {
+          if (l.code !== code) return;
+          const d = Number(l.debe) || 0;
+          const h = Number(l.haber) || 0;
+          sumD += d;
+          sumH += h;
+          runningSaldo += isDebitNormal ? (d - h) : (h - d);
+          const match = !filterText || `${e.cd} ${e.glosa} ${e.fecha}`.toLowerCase().includes(filterText);
+          if (match) {
+            movements.push({
+              fecha: e.fecha,
+              cd: e.cd,
+              glosa: e.glosa,
+              debe: d,
+              haber: h,
+              saldo: runningSaldo
+            });
+          }
+        });
+      });
+
+      document.getElementById('mayor-total-debe').textContent = `$${fmtMoney(sumD)}`;
+      document.getElementById('mayor-total-haber').textContent = `$${fmtMoney(sumH)}`;
+      document.getElementById('mayor-saldo-final').textContent = `$${fmtMoney(runningSaldo)}`;
+
+      const tbody = document.getElementById('mayor-table-body');
+      if (!movements.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-xs text-slate-400">No hay movimientos registrados para esta cuenta.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = movements.map(m => `
+        <tr>
+          <td class="py-2.5 px-3 text-slate-600">${m.fecha}</td>
+          <td class="py-2.5 px-3 font-mono font-bold text-sky-700">${m.cd}</td>
+          <td class="py-2.5 px-3 text-slate-800">${m.glosa}</td>
+          <td class="py-2.5 px-3 text-right">${fmtMoney(m.debe)}</td>
+          <td class="py-2.5 px-3 text-right">${fmtMoney(m.haber)}</td>
+          <td class="py-2.5 px-3 text-right font-semibold text-slate-900">${fmtMoney(m.saldo)}</td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('mayor-account-select').addEventListener('change', renderMayor);
+    document.getElementById('mayor-filter-text').addEventListener('input', renderMayor);
+
+    function getFilteredStatementAccounts(allBalances) {
+      const onlyWithBalance = document.getElementById('stmt-only-balances')?.checked ?? true;
+      const level = document.getElementById('stmt-level-select')?.value || 'mayor';
+
+      let list = allBalances.filter(b => {
+        if (!onlyWithBalance) return true;
+        return Math.abs(b.saldo) > 0.004 || Math.abs(b.debe) > 0.004 || Math.abs(b.haber) > 0.004;
+      });
+
+      if (level === 'mayor' || level === 'subcuenta') {
+        const targetLen = level === 'mayor' ? 4 : 7;
+        const grouped = new Map();
+        for (const item of list) {
+          const cleanCode = String(item.code || '').trim();
+          const groupCode = cleanCode.length > targetLen ? cleanCode.slice(0, targetLen) : cleanCode;
+          const planGroup = state.plan.find(a => a.code === groupCode);
+          const groupName = planGroup ? planGroup.name : item.name;
+          if (!grouped.has(groupCode)) {
+            grouped.set(groupCode, {
+              code: groupCode,
+              name: groupName,
+              type: item.type,
+              debe: 0,
+              haber: 0,
+              saldo: 0
+            });
+          }
+          const g = grouped.get(groupCode);
+          g.debe += item.debe;
+          g.haber += item.haber;
+          g.saldo += item.saldo;
+        }
+        list = Array.from(grouped.values()).sort((a, b) => a.code.localeCompare(b.code));
+      }
+
+      return list;
+    }
+
+    function renderStatements() {
+      const periodMode = document.getElementById('stmt-period-select')?.value || 'ALL';
+      const customBox = document.getElementById('stmt-custom-range');
+      if (customBox) {
+        customBox.classList.toggle('hidden', periodMode !== 'CUSTOM');
+      }
+
+      const emp = getActiveCompany();
+      document.getElementById('stmt-company-name').textContent = emp.razonSocial;
+      document.getElementById('stmt-company-ruc').textContent = `RUC: ${emp.ruc}`;
+      document.getElementById('stmt-company-addr').textContent = emp.direccion;
+      document.getElementById('sign-elaborado-name').textContent = emp.elaboradoPor;
+      document.getElementById('sign-revisado-name').textContent = emp.revisadoPor;
+      document.getElementById('sign-autorizado-name').textContent = emp.autorizadoPor;
+
+      document.querySelectorAll('.stmt-tab').forEach(btn => {
+        const active = btn.dataset.stmt === state.activeStatement;
+        btn.className = active
+          ? 'stmt-tab px-3.5 py-2 rounded-lg text-xs font-bold bg-sky-600 text-white cursor-pointer'
+          : 'stmt-tab px-3.5 py-2 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer';
+      });
+
+      const periodFilterFn = isEntryInSelectedPeriod();
+      const rawBalances = getAccountBalances(periodFilterFn);
+      const balances = getFilteredStatementAccounts(rawBalances);
+      const levelVal = document.getElementById('stmt-level-select')?.value || 'mayor';
+      const levelLabel =
+        levelVal === 'detalle' ? 'Nivel de Detalle' :
+        levelVal === 'subcuenta' ? 'Nivel de Subcuenta' : 'Nivel de Mayor';
+      const periodLabel = getPeriodLabel();
+
+      const content = document.getElementById('statement-content');
+      const titleEl = document.getElementById('stmt-title');
+      const periodEl = document.getElementById('stmt-period');
+      periodEl.textContent = `Ejercicio Fiscal ${emp.periodo} · Período: ${periodLabel} · ${levelLabel} · Expresado en ${emp.moneda}`;
+
+      if (state.activeStatement === 'balanza') {
+        titleEl.textContent = 'Balanza de Comprobación';
+        const totD = balances.reduce((s, b) => s + b.debe, 0);
+        const totH = balances.reduce((s, b) => s + b.haber, 0);
+        content.innerHTML = `
+          <table class="w-full text-sm text-left border border-slate-200">
+            <thead class="bg-slate-100 text-xs uppercase text-slate-700 border-b border-slate-200">
+              <tr>
+                <th class="py-2.5 px-3">Código</th>
+                <th class="py-2.5 px-3">Cuenta</th>
+                <th class="py-2.5 px-3 text-right">Debe</th>
+                <th class="py-2.5 px-3 text-right">Haber</th>
+                <th class="py-2.5 px-3 text-right">Saldo</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 tabular-nums">
+              ${balances.map(b => `
+                <tr>
+                  <td class="py-2 px-3 font-mono">${b.code}</td>
+                  <td class="py-2 px-3">${b.name}</td>
+                  <td class="py-2 px-3 text-right">${fmtMoney(b.debe)}</td>
+                  <td class="py-2 px-3 text-right">${fmtMoney(b.haber)}</td>
+                  <td class="py-2 px-3 text-right font-semibold">${fmtMoney(b.saldo)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot class="bg-slate-50 font-bold border-t border-slate-300 tabular-nums">
+              <tr>
+                <td colspan="2" class="py-2.5 px-3 text-right">Sumas Iguales:</td>
+                <td class="py-2.5 px-3 text-right">${fmtMoney(totD)}</td>
+                <td class="py-2.5 px-3 text-right">${fmtMoney(totH)}</td>
+                <td class="py-2.5 px-3 text-right">${fmtMoney(Math.abs(totD - totH))}</td>
+              </tr>
+            </tfoot>
+          </table>
+        `;
+      } else if (state.activeStatement === 'resultados') {
+        titleEl.textContent = 'Estado de Resultados';
+        const ingresos = balances.filter(b => b.type === 'INGRESO');
+        const gastos = balances.filter(b => b.type === 'GASTO');
+        const totIng = ingresos.reduce((s, b) => s + b.saldo, 0);
+        const totGas = gastos.reduce((s, b) => s + b.saldo, 0);
+        const neta = totIng - totGas;
+        content.innerHTML = `
+          <div class="space-y-4 tabular-nums">
+            <h4 class="font-bold text-slate-800 uppercase text-xs">Ingresos</h4>
+            <table class="w-full text-sm border border-slate-200">
+              ${ingresos.map(i => `<tr><td class="py-2 px-3">${i.code} — ${i.name}</td><td class="py-2 px-3 text-right">${fmtMoney(i.saldo)}</td></tr>`).join('')}
+              <tr class="bg-slate-50 font-bold"><td class="py-2 px-3">Total Ingresos</td><td class="py-2 px-3 text-right">${fmtMoney(totIng)}</td></tr>
+            </table>
+            <h4 class="font-bold text-slate-800 uppercase text-xs">Costos y Gastos</h4>
+            <table class="w-full text-sm border border-slate-200">
+              ${gastos.map(g => `<tr><td class="py-2 px-3">${g.code} — ${g.name}</td><td class="py-2 px-3 text-right">${fmtMoney(g.saldo)}</td></tr>`).join('')}
+              <tr class="bg-slate-50 font-bold"><td class="py-2 px-3">Total Costos y Gastos</td><td class="py-2 px-3 text-right">${fmtMoney(totGas)}</td></tr>
+            </table>
+            <div class="p-3.5 rounded-xl bg-sky-50 border border-sky-200 flex justify-between font-extrabold text-slate-900">
+              <span>Utilidad / Pérdida Neta del Período</span>
+              <span>${neta < 0 ? '-' : ''}$${fmtMoney(Math.abs(neta))}</span>
+            </div>
+          </div>
+        `;
+      } else if (state.activeStatement === 'situacion') {
+        titleEl.textContent = 'Estado de Situación Financiera';
+        const activos = balances.filter(b => b.type === 'ACTIVO');
+        const pasivos = balances.filter(b => b.type === 'PASIVO');
+        const patrimonio = balances.filter(b => b.type === 'PATRIMONIO');
+        const ingresos = rawBalances.filter(b => b.type === 'INGRESO').reduce((s, b) => s + b.saldo, 0);
+        const gastos = rawBalances.filter(b => b.type === 'GASTO').reduce((s, b) => s + b.saldo, 0);
+        const utilidadPer = ingresos - gastos;
+
+        const totAct = activos.reduce((s, b) => s + b.saldo, 0);
+        const totPas = pasivos.reduce((s, b) => s + b.saldo, 0);
+        const totPat = patrimonio.reduce((s, b) => s + b.saldo, 0) + utilidadPer;
+
+        content.innerHTML = `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 tabular-nums">
+            <div>
+              <h4 class="font-bold text-slate-800 uppercase text-xs mb-2">Activos</h4>
+              <table class="w-full text-sm border border-slate-200">
+                ${activos.map(a => `<tr><td class="py-2 px-3">${a.code} — ${a.name}</td><td class="py-2 px-3 text-right">${fmtMoney(a.saldo)}</td></tr>`).join('')}
+                <tr class="bg-slate-100 font-bold"><td class="py-2.5 px-3">Total Activos</td><td class="py-2.5 px-3 text-right">${fmtMoney(totAct)}</td></tr>
+              </table>
+            </div>
+            <div class="space-y-4">
+              <div>
+                <h4 class="font-bold text-slate-800 uppercase text-xs mb-2">Pasivos</h4>
+                <table class="w-full text-sm border border-slate-200">
+                  ${pasivos.map(p => `<tr><td class="py-2 px-3">${p.code} — ${p.name}</td><td class="py-2 px-3 text-right">${fmtMoney(p.saldo)}</td></tr>`).join('')}
+                  <tr class="bg-slate-50 font-bold"><td class="py-2 px-3">Total Pasivos</td><td class="py-2 px-3 text-right">${fmtMoney(totPas)}</td></tr>
+                </table>
+              </div>
+              <div>
+                <h4 class="font-bold text-slate-800 uppercase text-xs mb-2">Patrimonio</h4>
+                <table class="w-full text-sm border border-slate-200">
+                  ${patrimonio.map(p => `<tr><td class="py-2 px-3">${p.code} — ${p.name}</td><td class="py-2 px-3 text-right">${fmtMoney(p.saldo)}</td></tr>`).join('')}
+                  <tr><td class="py-2 px-3 italic">Resultado del Período</td><td class="py-2 px-3 text-right">${fmtMoney(utilidadPer)}</td></tr>
+                  <tr class="bg-slate-100 font-bold"><td class="py-2.5 px-3">Total Pasivo + Patrimonio</td><td class="py-2.5 px-3 text-right">${fmtMoney(totPas + totPat)}</td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (state.activeStatement === 'flujo') {
+        titleEl.textContent = 'Estado de Flujo de Efectivo';
+        const cashMovs = [];
+        state.entries.filter(periodFilterFn).forEach(e => {
+          e.lines.forEach(l => {
+            if (l.code.startsWith('1101') || l.code.startsWith('1102')) {
+              cashMovs.push({ fecha: e.fecha, cd: e.cd, glosa: e.glosa, entrada: l.debe, salida: l.haber });
+            }
+          });
+        });
+        const totEnt = cashMovs.reduce((s, m) => s + m.entrada, 0);
+        const totSal = cashMovs.reduce((s, m) => s + m.salida, 0);
+        content.innerHTML = `
+          <table class="w-full text-sm border border-slate-200 tabular-nums">
+            <thead class="bg-slate-100 text-xs uppercase">
+              <tr><th class="py-2 px-3 text-left">Fecha</th><th class="py-2 px-3 text-left">CD</th><th class="py-2 px-3 text-left">Concepto</th><th class="py-2 px-3 text-right">Entradas</th><th class="py-2 px-3 text-right">Salidas</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              ${cashMovs.map(m => `<tr><td class="py-2 px-3">${m.fecha}</td><td class="py-2 px-3 font-mono">${m.cd}</td><td class="py-2 px-3">${m.glosa}</td><td class="py-2 px-3 text-right">${fmtMoney(m.entrada)}</td><td class="py-2 px-3 text-right">${fmtMoney(m.salida)}</td></tr>`).join('')}
+            </tbody>
+            <tfoot class="bg-slate-50 font-bold border-t border-slate-300">
+              <tr><td colspan="3" class="py-2.5 px-3 text-right">Flujo Neto de Efectivo:</td><td colspan="2" class="py-2.5 px-3 text-right">$${fmtMoney(totEnt - totSal)}</td></tr>
+            </tfoot>
+          </table>
+        `;
+      } else {
+        titleEl.textContent = 'Estado de Cambios en el Patrimonio';
+        const patAccs = balances.filter(b => b.type === 'PATRIMONIO');
+        const ingresos = rawBalances.filter(b => b.type === 'INGRESO').reduce((s, b) => s + b.saldo, 0);
+        const gastos = rawBalances.filter(b => b.type === 'GASTO').reduce((s, b) => s + b.saldo, 0);
+        const neta = ingresos - gastos;
+        const totPat = patAccs.reduce((s, b) => s + b.saldo, 0) + neta;
+        content.innerHTML = `
+          <table class="w-full text-sm border border-slate-200 tabular-nums">
+            <thead class="bg-slate-100 text-xs uppercase">
+              <tr><th class="py-2 px-3 text-left">Componente Patrimonial</th><th class="py-2 px-3 text-right">Saldo</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              ${patAccs.map(p => `<tr><td class="py-2 px-3">${p.code} — ${p.name}</td><td class="py-2 px-3 text-right">${fmtMoney(p.saldo)}</td></tr>`).join('')}
+              <tr><td class="py-2 px-3">Resultado Neto del Ejercicio</td><td class="py-2 px-3 text-right">${fmtMoney(neta)}</td></tr>
+            </tbody>
+            <tfoot class="bg-slate-50 font-bold border-t border-slate-300">
+              <tr><td class="py-2.5 px-3">Patrimonio Total al Cierre</td><td class="py-2.5 px-3 text-right">$${fmtMoney(totPat)}</td></tr>
+            </tfoot>
+          </table>
+        `;
+      }
+    }
+
+    document.getElementById('stmt-only-balances').addEventListener('change', renderStatements);
+    document.getElementById('stmt-level-select').addEventListener('change', renderStatements);
+    document.getElementById('stmt-period-select').addEventListener('change', renderStatements);
+    document.getElementById('stmt-month-from').addEventListener('change', renderStatements);
+    document.getElementById('stmt-month-to').addEventListener('change', renderStatements);
+
+    document.querySelectorAll('.stmt-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.activeStatement = btn.dataset.stmt;
+        persistState();
+        renderStatements();
+      });
+    });
+
+    document.getElementById('print-stmt-btn').addEventListener('click', () => window.print());
+
+    function renderVoucher() {
+      const sel = document.getElementById('select-cd-voucher');
+      if (!state.entries.length) {
+        sel.innerHTML = `<option value="">Sin comprobantes</option>`;
+        document.getElementById('cdv-number').textContent = 'CD01-0000';
+        document.getElementById('cdv-date').textContent = 'Fecha: —';
+        document.getElementById('cdv-glosa').textContent = 'No hay comprobantes de diario registrados.';
+        document.getElementById('cdv-lines-body').innerHTML = '';
+        document.getElementById('cdv-total-debe').textContent = '$0.00';
+        document.getElementById('cdv-total-haber').textContent = '$0.00';
+        return;
+      }
+
+      sel.innerHTML = state.entries.map(e => `<option value="${e.cd}">${e.cd} — ${e.fecha}</option>`).join('');
+      if (state.selectedVoucherCd && state.entries.some(e => e.cd === state.selectedVoucherCd)) {
+        sel.value = state.selectedVoucherCd;
+      } else {
+        sel.value = state.entries[state.entries.length - 1].cd;
+      }
+
+      const entry = state.entries.find(e => e.cd === sel.value) || state.entries[0];
+      const emp = getActiveCompany();
+
+      document.getElementById('cdv-company-name').textContent = emp.razonSocial;
+      document.getElementById('cdv-company-ruc').textContent = `RUC: ${emp.ruc}`;
+      document.getElementById('cdv-company-addr').textContent = emp.direccion;
+      document.getElementById('cdv-number').textContent = entry.cd;
+      document.getElementById('cdv-date').textContent = `Fecha: ${entry.fecha}`;
+      document.getElementById('cdv-glosa').textContent = entry.glosa;
+
+      document.getElementById('cdv-lines-body').innerHTML = entry.lines.map(l => `
+        <tr>
+          <td class="py-2.5 px-4 font-mono">${l.code}</td>
+          <td class="py-2.5 px-4">${l.name}</td>
+          <td class="py-2.5 px-4 text-right">${fmtMoney(l.debe)}</td>
+          <td class="py-2.5 px-4 text-right">${fmtMoney(l.haber)}</td>
+        </tr>
+      `).join('');
+
+      const td = entry.lines.reduce((s, l) => s + l.debe, 0);
+      const th = entry.lines.reduce((s, l) => s + l.haber, 0);
+      document.getElementById('cdv-total-debe').textContent = `$${fmtMoney(td)}`;
+      document.getElementById('cdv-total-haber').textContent = `$${fmtMoney(th)}`;
+
+      document.getElementById('cdv-sign-elab').textContent = emp.elaboradoPor;
+      document.getElementById('cdv-sign-rev').textContent = emp.revisadoPor;
+      document.getElementById('cdv-sign-aut').textContent = emp.autorizadoPor;
+    }
+
+    document.getElementById('select-cd-voucher').addEventListener('change', (e) => {
+      state.selectedVoucherCd = e.target.value;
+      persistState();
+      renderVoucher();
+    });
+
+    document.getElementById('print-cd-btn').addEventListener('click', () => window.print());
+
+    function renderRespaldoView() { /* La exportación completa se gestiona con el botón Excel. */ }
+
+    function fillCompanyForm(emp) {
+      document.getElementById('cfg-razon').value = emp.razonSocial || '';
+      document.getElementById('cfg-ruc').value = emp.ruc || '';
+      document.getElementById('cfg-moneda').value = emp.moneda || 'USD ($)';
+      document.getElementById('cfg-periodo').value = emp.periodo || '2026';
+      document.getElementById('cfg-direccion').value = emp.direccion || '';
+      document.getElementById('cfg-elab').value = emp.elaboradoPor || '';
+      document.getElementById('cfg-rev').value = emp.revisadoPor || '';
+      document.getElementById('cfg-aut').value = emp.autorizadoPor || '';
+    }
+
+    function loadAccountIntoForm(code) {
+      const acc = state.plan.find(a => a.code === code);
+      if (!acc) return;
+      editingAccountCode = acc.code;
+      document.getElementById('coa-code-input').value = acc.code;
+      document.getElementById('coa-name-input').value = acc.name;
+      document.getElementById('coa-type-select').value = acc.type;
+      document.getElementById('coa-edit-select').value = acc.code;
+      document.getElementById('coa-form-title').textContent = `✏️ Modificando Cuenta ${acc.code}`;
+      document.getElementById('coa-save-btn').textContent = '💾 Actualizar Cuenta';
+      document.getElementById('coa-name-input').focus();
+    }
+
+    function resetAccountForm() {
+      editingAccountCode = null;
+      document.getElementById('coa-code-input').value = '';
+      document.getElementById('coa-name-input').value = '';
+      document.getElementById('coa-type-select').value = 'AUTO';
+      document.getElementById('coa-edit-select').value = '';
+      document.getElementById('coa-form-title').textContent = '➕ Agregar o Modificar Cuenta en el Plan de Cuentas';
+      document.getElementById('coa-save-btn').textContent = '💾 Guardar Cuenta';
+    }
+
+    function renderCatalogTable() {
+      const tbody = document.getElementById('catalog-table-body');
+      if (!tbody) return;
+      const typeFilter = document.getElementById('catalog-filter-type')?.value || 'ALL';
+      const q = (document.getElementById('catalog-search-input')?.value || '').trim().toLowerCase();
+
+      const filtered = state.plan.filter(acc => {
+        if (typeFilter !== 'ALL' && acc.type !== typeFilter) return false;
+        if (q && !acc.code.toLowerCase().includes(q) && !acc.name.toLowerCase().includes(q)) return false;
+        return true;
+      });
+
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="py-5 text-center text-xs text-slate-400">No hay cuentas que coincidan con el filtro.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(acc => `
+        <tr>
+          <td class="py-2 px-3 font-mono font-bold text-sky-700">${acc.code}</td>
+          <td class="py-2 px-3 text-slate-800">${acc.name}</td>
+          <td class="py-2 px-3"><span class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">${acc.type}</span></td>
+          <td class="py-2 px-3 text-center space-x-2 whitespace-nowrap">
+            <button type="button" data-mod-code="${acc.code}" class="mod-catalog-acc text-amber-700 hover:underline text-xs font-bold cursor-pointer">Modificar</button>
+            <button type="button" data-del-code="${acc.code}" class="del-catalog-acc text-rose-600 hover:underline text-xs font-bold cursor-pointer">Eliminar</button>
+          </td>
+        </tr>
+      `).join('');
+
+      tbody.querySelectorAll('.mod-catalog-acc').forEach(btn => {
+        btn.addEventListener('click', () => {
+          loadAccountIntoForm(btn.dataset.modCode);
+        });
+      });
+
+      tbody.querySelectorAll('.del-catalog-acc').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const codeToDel = btn.dataset.delCode;
+          state.plan = state.plan.filter(a => a.code !== codeToDel);
+          if (editingAccountCode === codeToDel) resetAccountForm();
+          persistState();
+          renderAll();
+          showToast(`Cuenta ${codeToDel} eliminada del catálogo.`, 'info');
+        });
+      });
+    }
+
+    function renderPlanCuentasView() {
+      const countEl = document.getElementById('coa-active-count');
+      if (countEl) countEl.textContent = String(state.plan.length);
+
+      const editSel = document.getElementById('coa-edit-select');
+      if (editSel) {
+        const currentEdit = editingAccountCode || editSel.value;
+        editSel.innerHTML = `<option value="">-- Nueva cuenta --</option>` +
+          state.plan.map(acc => `<option value="${acc.code}">${acc.code} — ${acc.name}</option>`).join('');
+        if (currentEdit && state.plan.some(a => a.code === currentEdit)) {
+          editSel.value = currentEdit;
+        }
+      }
+      renderCatalogTable();
+    }
+
+    function renderConfig() {
+      const sel = document.getElementById('cfg-company-select');
+      sel.innerHTML = state.companies.map(c => `<option value="${c.id}">${c.razonSocial} (${c.ruc})</option>`).join('');
+      const emp = getActiveCompany();
+      sel.value = emp.id;
+      fillCompanyForm(emp);
+    }
+
+    document.getElementById('coa-edit-select').addEventListener('change', (e) => {
+      if (!e.target.value) {
+        resetAccountForm();
+      } else {
+        loadAccountIntoForm(e.target.value);
+      }
+    });
+
+    document.getElementById('coa-reset-form-btn').addEventListener('click', resetAccountForm);
+
+    document.getElementById('coa-account-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const code = document.getElementById('coa-code-input').value.trim();
+      const name = document.getElementById('coa-name-input').value.trim();
+      const rawType = document.getElementById('coa-type-select').value;
+      if (!code || !name) {
+        showToast('Ingrese el código y el nombre de la cuenta.', 'error');
+        return;
+      }
+      const type = rawType === 'AUTO' ? mapCatalogoTipo(code, '') : rawType;
+
+      if (editingAccountCode && editingAccountCode !== code) {
+        state.plan = state.plan.filter(a => a.code !== editingAccountCode);
+      }
+
+      const existingIdx = state.plan.findIndex(a => a.code === code);
+      if (existingIdx >= 0) {
+        state.plan[existingIdx] = { code, name, type };
+        showToast(`Cuenta ${code} modificada y guardada en el catálogo.`, 'success');
+      } else {
+        state.plan.push({ code, name, type });
+        state.plan.sort((a, b) => a.code.localeCompare(b.code));
+        showToast(`Cuenta ${code} — ${name} agregada al catálogo.`, 'success');
+      }
+      persistState();
+      resetAccountForm();
+      renderAll();
+    });
+
+    document.getElementById('catalog-filter-type').addEventListener('change', renderCatalogTable);
+    document.getElementById('catalog-search-input').addEventListener('input', renderCatalogTable);
+
+    document.getElementById('cfg-company-select').addEventListener('change', (e) => {
+      state.activeCompanyId = e.target.value;
+      persistState();
+      renderAll();
+    });
+
+    document.getElementById('new-company-btn').addEventListener('click', () => {
+      const id = `emp-${Date.now()}`;
+      const newEmp = {
+        id,
+        razonSocial: 'Nueva Empresa S.A.',
+        ruc: '00000000000',
+        moneda: 'USD ($)',
+        periodo: '2026',
+        direccion: 'Dirección Comercial',
+        elaboradoPor: 'Contador General',
+        revisadoPor: 'Auditoría Interna',
+        autorizadoPor: 'Gerencia General'
+      };
+      state.companies.push(newEmp);
+      state.activeCompanyId = id;
+      persistState();
+      renderAll();
+      showToast('Nueva empresa creada. Complete sus datos y haga clic en Guardar.', 'info');
+    });
+
+    document.getElementById('company-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const emp = getActiveCompany();
+      emp.razonSocial = document.getElementById('cfg-razon').value.trim();
+      emp.ruc = document.getElementById('cfg-ruc').value.trim();
+      emp.moneda = document.getElementById('cfg-moneda').value.trim() || 'USD ($)';
+      emp.periodo = document.getElementById('cfg-periodo').value.trim() || '2026';
+      emp.direccion = document.getElementById('cfg-direccion').value.trim();
+      emp.elaboradoPor = document.getElementById('cfg-elab').value.trim();
+      emp.revisadoPor = document.getElementById('cfg-rev').value.trim();
+      emp.autorizadoPor = document.getElementById('cfg-aut').value.trim();
+      persistState();
+      renderAll();
+      showToast('Datos de empresa y RUC guardados.', 'success');
+    });
+
+    function mapCatalogoTipo(code, rawType) {
+      const valid = new Set(['ACTIVO', 'PASIVO', 'PATRIMONIO', 'INGRESO', 'GASTO']);
+      const t = String(rawType || '').trim().toUpperCase();
+      if (valid.has(t)) return t;
+      const first = String(code || '').replace(/\u00A0/g, ' ').trim().charAt(0);
+      if (first === '1') return 'ACTIVO';
+      if (first === '2') return 'PASIVO';
+      if (first === '3') return 'PATRIMONIO';
+      if (first === '4' || first === '7') return 'INGRESO';
+      return 'GASTO';
+    }
+
+    function normalizeRowsToPlan(rows) {
+      const parsed = [];
+      for (const row of rows || []) {
+        if (!Array.isArray(row)) continue;
+        const code = String(row[0] ?? '').replace(/^\uFEFF/, '').replace(/^["']|["']$/g, '').trim();
+        const name = String(row[1] ?? '').replace(/^["']|["']$/g, '').replace(/\s+/g, ' ').trim();
+        const rawType = String(row[2] ?? '').replace(/^["']|["']$/g, '').trim();
+        if (!code || !name) continue;
+        if (['codigo', 'código', 'cuenta', 'code'].includes(code.toLowerCase())) continue;
+        parsed.push({ code, name, type: mapCatalogoTipo(code, rawType) });
+      }
+      return parsed;
+    }
+
+    function parsePlanCsv(rawText) {
+      const cleanText = String(rawText || '').replace(/^\uFEFF/, '').replace(/\u00A0/g, ' ');
+      const lines = cleanText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const rows = lines.map(line => {
+        if (line.includes('\t')) return line.split('\t');
+        if (line.includes(';')) return line.split(';');
+        return line.split(',');
+      });
+      return normalizeRowsToPlan(rows);
+    }
+
+    document.getElementById('plan-file-input').addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const lower = file.name.toLowerCase();
+      const isExcel = lower.endsWith('.xlsx') || lower.endsWith('.xls');
+
+      if (isExcel && window.XLSX) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const bytes = new Uint8Array(evt.target.result);
+            const wb = window.XLSX.read(bytes, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+            const normalized = normalizeRowsToPlan(rows);
+            if (!normalized.length) {
+              showToast('No se encontraron cuentas válidas en el archivo Excel.', 'error');
+              return;
+            }
+            document.getElementById('plan-csv-input').value = normalized
+              .map(a => `${a.code},${a.name},${a.type}`)
+              .join('\n');
+            showToast(`Excel leído (${normalized.length} cuentas cargadas en vista previa).`, 'success');
+          } catch (_) {
+            showToast('Error al leer el archivo Excel.', 'error');
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const text = String(evt.target?.result || '');
+          const normalized = parsePlanCsv(text);
+          document.getElementById('plan-csv-input').value = normalized.length
+            ? normalized.map(a => `${a.code},${a.name},${a.type}`).join('\n')
+            : text;
+          showToast(
+            normalized.length
+              ? `Archivo leído (${normalized.length} cuentas detectadas).`
+              : 'Archivo cargado; revise el formato antes de importar.',
+            normalized.length ? 'success' : 'info'
+          );
+        };
+        reader.readAsText(file, 'UTF-8');
+      }
+    });
+
+    document.getElementById('import-plan-merge-btn').addEventListener('click', () => {
+      const incoming = parsePlanCsv(document.getElementById('plan-csv-input').value);
+      if (!incoming.length) {
+        showToast('No se encontraron cuentas válidas en el texto o archivo.', 'error');
+        return;
+      }
+      const map = new Map(state.plan.map(a => [a.code, a]));
+      incoming.forEach(a => map.set(a.code, a));
+      state.plan = Array.from(map.values()).sort((a, b) => a.code.localeCompare(b.code));
+      persistState();
+      renderAll();
+      showToast(`Plan combinado (${incoming.length} cuentas procesadas).`, 'success');
+    });
+
+    document.getElementById('import-plan-replace-btn').addEventListener('click', () => {
+      const incoming = parsePlanCsv(document.getElementById('plan-csv-input').value);
+      if (!incoming.length) {
+        showToast('No se encontraron cuentas válidas para reemplazar el plan.', 'error');
+        return;
+      }
+      state.plan = incoming.sort((a, b) => a.code.localeCompare(b.code));
+      persistState();
+      renderAll();
+      showToast(`Plan de cuentas reemplazado con ${incoming.length} cuentas.`, 'success');
+    });
+
+    function downloadPlanTemplateCsv() {
+      const sample = [
+        'codigo,nombre,tipo',
+        '1101,Caja General,ACTIVO',
+        '1102,Banco Nacional,ACTIVO',
+        '2101,Proveedores,PASIVO',
+        '3101,Capital Social,PATRIMONIO',
+        '4101,Ventas Netas,INGRESO',
+        '5101,Gastos Operativos,GASTO'
+      ].join('\r\n');
+      const blob = new Blob([sample], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Plantilla_Plan_de_Cuentas.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('coa-download-template-btn').addEventListener('click', downloadPlanTemplateCsv);
+
+    const resetInput = document.getElementById('reset-confirm-input');
+    const resetMovBtn = document.getElementById('reset-movements-btn');
+    const resetFacBtn = document.getElementById('reset-factory-btn');
+
+    resetInput.addEventListener('input', () => {
+      const ok = resetInput.value.trim().toUpperCase() === 'CERO';
+      resetMovBtn.disabled = !ok;
+      resetFacBtn.disabled = !ok;
+    });
+
+    resetMovBtn.addEventListener('click', () => {
+      state.entries = [];
+      draftLines = [];
+      state.selectedVoucherCd = '';
+      persistState();
+      resetInput.value = '';
+      resetMovBtn.disabled = true;
+      resetFacBtn.disabled = true;
+      renderAll();
+      showToast('Todos los asientos y movimientos fueron borrados. El sistema está en cero.', 'success');
+    });
+
+    resetFacBtn.addEventListener('click', () => {
+      const fresh = createInitialState();
+      fresh.entries = [];
+      fresh.loggedInUser = state.loggedInUser || 'admin';
+      state = fresh;
+      draftLines = [];
+      editingAccountCode = null;
+      persistState();
+      resetInput.value = '';
+      resetMovBtn.disabled = true;
+      resetFacBtn.disabled = true;
+      renderAll();
+      showToast('Reinicio total completado: movimientos en cero y configuración restablecida.', 'success');
+    });
+
+    function renderAll() {
+      renderHeaderAndDashboard();
+      renderDiarioHistory();
+      renderMayor();
+      renderStatements();
+      renderVoucher();
+      renderPlanCuentasView();
+      renderRespaldoView();
+      renderConfig();
+    }
+
+    if (state.loggedInUser === 'admin') {
+      enterApp('admin');
+    } else {
+      renderAll();
+    }
+  </script>
+
+<script>
+(() => {
+  async function checkCloudStatus() {
+    const badge = document.getElementById('topbar-storage-text');
+    try {
+      const resp = await fetch('/api/health', { cache: 'no-store', credentials: 'same-origin' });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok || !data.database) throw new Error(data.error || 'Base de datos no disponible');
+      if (badge) badge.textContent = 'PostgreSQL Cloud · Conectado';
+      if (typeof state !== 'undefined' && !state.loggedInUser && data.authenticated && data.user) {
+        const cloudRaw = safeStorage.get(STORAGE_KEY);
+        if (cloudRaw) {
+          const parsed = JSON.parse(cloudRaw);
+          state = { ...createInitialState(), ...parsed, loggedInUser: data.user,
+            companies: Array.isArray(parsed.companies) && parsed.companies.length ? parsed.companies : createInitialState().companies,
+            plan: Array.isArray(parsed.plan) && parsed.plan.length ? parsed.plan : DEFAULT_PLAN.map(x => ({...x})),
+            entries: Array.isArray(parsed.entries) ? parsed.entries : [] };
+          enterApp(data.user, false);
+          return;
+        }
+      }
+      if (typeof state !== 'undefined' && state.loggedInUser) {
+        const stateResp = await fetch('/api/state', { cache: 'no-store', credentials: 'same-origin' });
+        if (stateResp.status === 401) return;
+        const cloud = await stateResp.json();
+        if (cloud.ok && cloud.state) {
+          const signature = JSON.stringify(cloud.state);
+          if (signature !== window.__contabLastCloudState) {
+            const user = state.loggedInUser;
+            const parsed = cloud.state;
+            state = { ...createInitialState(), ...parsed, loggedInUser: user,
+              companies: Array.isArray(parsed.companies) && parsed.companies.length ? parsed.companies : createInitialState().companies,
+              plan: Array.isArray(parsed.plan) && parsed.plan.length ? parsed.plan : DEFAULT_PLAN.map(x => ({...x})),
+              entries: Array.isArray(parsed.entries) ? parsed.entries : [] };
+            window.__contabLastCloudState = signature;
+            window.__contabRevision = Number(cloud.revision || 0);
+            renderAll();
+            if (typeof showToast === 'function') showToast('Información actualizada desde otro equipo.', 'info');
+          }
+        }
+      }
+    } catch (err) {
+      if (badge) badge.textContent = 'Sin conexión a PostgreSQL';
+    }
+  }
+
+  function downloadExcelBackup() {
+    if (!window.XLSX) {
+      showToast('No se pudo cargar el módulo Excel. Verifique Internet y vuelva a intentarlo.', 'error');
+      return;
+    }
+    try {
+      const wb = XLSX.utils.book_new();
+      const companyRows = (state.companies || []).map(c => ({
+        ID: c.id || '', Razón_Social: c.razonSocial || '', RUC: c.ruc || '',
+        Dirección: c.direccion || '', Teléfono: c.telefono || '', Correo: c.email || ''
+      }));
+      const planRows = (state.plan || []).map(a => ({ Código: a.code || '', Cuenta: a.name || '', Tipo: a.type || '' }));
+      const voucherRows = (state.entries || []).map(e => ({
+        Comprobante: e.cd || '', Fecha: e.fecha || '', Glosa: e.glosa || '',
+        Total_Debe: (e.lines || []).reduce((n,l) => n + (Number(l.debe)||0), 0),
+        Total_Haber: (e.lines || []).reduce((n,l) => n + (Number(l.haber)||0), 0)
+      }));
+      const detailRows = [];
+      (state.entries || []).forEach(e => (e.lines || []).forEach((l,i) => detailRows.push({
+        Comprobante: e.cd || '', Fecha: e.fecha || '', Glosa: e.glosa || '',
+        Línea: i + 1, Código_Cuenta: l.code || '', Nombre_Cuenta: l.name || '',
+        Debe: Number(l.debe)||0, Haber: Number(l.haber)||0
+      })));
+      const summaryRows = [
+        { Concepto: 'Fecha de respaldo', Valor: new Date().toLocaleString('es-NI') },
+        { Concepto: 'Empresas', Valor: companyRows.length },
+        { Concepto: 'Cuentas', Valor: planRows.length },
+        { Concepto: 'Comprobantes', Valor: voucherRows.length },
+        { Concepto: 'Líneas contables', Valor: detailRows.length },
+        { Concepto: 'Fuente', Valor: 'PostgreSQL Cloud' }
+      ];
+      const addSheet = (name, rows, headers) => {
+        const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+        ws['!cols'] = (headers || Object.keys(rows[0] || {})).map(h => ({ wch: Math.min(Math.max(String(h).length + 3, 14), 36) }));
+        XLSX.utils.book_append_sheet(wb, ws, name);
+      };
+      addSheet('Resumen', summaryRows, ['Concepto','Valor']);
+      addSheet('Empresas', companyRows, ['ID','Razón_Social','RUC','Dirección','Teléfono','Correo']);
+      addSheet('Plan_Cuentas', planRows, ['Código','Cuenta','Tipo']);
+      addSheet('Comprobantes', voucherRows, ['Comprobante','Fecha','Glosa','Total_Debe','Total_Haber']);
+      addSheet('Libro_Diario', detailRows, ['Comprobante','Fecha','Glosa','Línea','Código_Cuenta','Nombre_Cuenta','Debe','Haber']);
+      const now = new Date();
+      const stamp = [now.getFullYear(), String(now.getMonth()+1).padStart(2,'0'), String(now.getDate()).padStart(2,'0'), '-', String(now.getHours()).padStart(2,'0'), String(now.getMinutes()).padStart(2,'0')].join('');
+      XLSX.writeFile(wb, `ContabERP_Respaldo_${stamp}.xlsx`, { compression: true });
+      showToast('Respaldo Excel generado correctamente.', 'success');
+    } catch (err) {
+      console.error('Error generando respaldo Excel:', err);
+      showToast(`No se pudo generar el Excel: ${err.message || err}`, 'error');
+    }
+  }
+
+  document.addEventListener('click', ev => {
+    if (ev.target.closest('#download-full-backup-xlsx-btn')) downloadExcelBackup();
+  });
+  window.addEventListener('DOMContentLoaded', () => {
+    checkCloudStatus();
+    setInterval(checkCloudStatus, 10000);
+  });
+})();
+</script>
